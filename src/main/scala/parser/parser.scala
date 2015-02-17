@@ -24,7 +24,7 @@ object BoolexParser {
     )
     
     lazy val circuitDeclaration: PackratParser[CircuitDeclarationContext] = positioned((
-        "circuit" ~ symbol ~ opt("(" ~ rep1sep(symbol, ",") ~ ")") ~
+        "circuit" ~ ident ~ opt("(" ~ rep1sep(ident, ",") ~ ")") ~
           rep(assignment) ~
           outStatement ~
         "end"
@@ -36,7 +36,7 @@ object BoolexParser {
     )
     
     lazy val assignment: PackratParser[AssignmentContext] = positioned(
-      rep1sep(symbol, ",") ~ "=" ~ rep1sep(l1expression, ",") ^^ {
+      rep1sep(ident, ",") ~ "=" ~ rep1sep(l1expression, ",") ^^ {
         case variables~"="~values => AssignmentContext(variables, values)
       }
     )
@@ -48,7 +48,7 @@ object BoolexParser {
     )
 
     lazy val circuitCall: PackratParser[CircuitCallContext] = positioned(
-      symbol ~ "(" ~ repsep(l1expression, ",") ~ ")" ^^ {
+      ident ~ "(" ~ repsep(l1expression, ",") ~ ")" ^^ {
         case name~"("~args~")" => CircuitCallContext(name, args)
       }
     )
@@ -105,22 +105,19 @@ object BoolexParser {
       ( "(" ~> l1expression <~ ")"
       | "true"
       | "false"
-      | symbol <~ not("(")
+      | ident <~ not("(")
       | circuitCall
     ) ^^ {
         case "true" => BooleanValue(true)
         case "false" => BooleanValue(false)
-        case symbol: SymbolContext => Variable(symbol)
+        case ident: String => Variable(ident)
         case exp: EC => exp
       }
     )
 
-    lazy val symbol: PackratParser[SymbolContext] = positioned(
-      ( not("true") ~> not("false") ~> ident
-      | failure("`true' and `false' are not valid variable names.")
-    ) ^^ {
-        case name => SymbolContext(name)
-      }
+    override def ident: Parser[String] = (
+      """(?!(?:true|false)\b)\p{javaJavaIdentifierStart}\p{javaJavaIdentifierPart}*""".r
+      withFailureMessage "`true' and `false' are reserved keywords."
     )
   }
 }

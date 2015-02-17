@@ -5,11 +5,10 @@ import scala.util.parsing.input.Positional
 package contexts {
   abstract class Context extends Positional
   abstract class ExpressionContext extends Context
-  case class AssignmentContext(variables: List[SymbolContext], values: List[ExpressionContext]) extends Context
-  case class SymbolContext(name: String) extends Context
+  case class AssignmentContext(variables: List[String], values: List[ExpressionContext]) extends Context
   case class CircuitDeclarationContext(
-    name: SymbolContext,
-    paramsOpt: Option[List[SymbolContext]],
+    name: String,
+    paramsOpt: Option[List[String]],
     assignments: List[AssignmentContext],
     output: OutStatementContext
   ) extends Context
@@ -23,6 +22,6 @@ package contexts {
   case class OrExpression(exp1: ExpressionContext, exp2: ExpressionContext) extends ExpressionContext
   case class NorExpression(exp1: ExpressionContext, exp2: ExpressionContext) extends ExpressionContext
   case class BooleanValue(value: Boolean) extends ExpressionContext
-  case class Variable(name: SymbolContext) extends ExpressionContext
-  case class CircuitCallContext(name: SymbolContext, arguments: List[ExpressionContext]) extends ExpressionContext
+  case class Variable(name: String) extends ExpressionContext
+  case class CircuitCallContext(name: String, arguments: List[ExpressionContext]) extends ExpressionContext
 }

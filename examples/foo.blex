@@ -1,5 +1,5 @@
 # This RS latch is properly handled.
-circuit true(r,s)
+circuit RSLatch(r,s)
     P = r nor Q
     Q = s nor P
     out P, Q
