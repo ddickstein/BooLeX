@@ -1,0 +1,6 @@
+# This RS latch is properly handled.
+circuit main(r,s)
+   P = r nor Q
+   Q = s nor P
+   out P, Q
+end

@@ -1,0 +1,11 @@
+circuit R_3_3(a, b, c)
+    o0 = (t and a) or (t and b) or (f and c)
+    o1 = (f and a) or (t and b) or (t and c)
+    o2 = (t and a) or (t and b) or (t and c)
+    out o0, o1, o2
+end
+
+circuit main(t9, t10, t11)
+  t3, t4, t5 = R_3_3(t9, t10, t11)
+  out t3, t4,t5
+end

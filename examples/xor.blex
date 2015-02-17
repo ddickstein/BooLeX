@@ -1,0 +1,4 @@
+# A simple XOR gate
+circuit main(a,b)
+	out a and not b or not a and b
+end

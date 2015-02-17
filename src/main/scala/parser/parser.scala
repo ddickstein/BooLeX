@@ -1,3 +1,5 @@
+package parser
+
 import scala.util.parsing.combinator._
 import scala.util.parsing.input.Positional
 
@@ -13,21 +15,22 @@ case class ModuleContext(decs: List[CircuitDeclarationContext]) extends Context
 case class OutStatementContext(outputs: List[ExpressionContext]) extends Context
 
 abstract class ExpressionContext extends Context
-type EC = ExpressionContext
 
-case class NotExpression(exp: EC) extends ExpressionContext
-case class AndExpression(exp1: EC, exp2: EC) extends ExpressionContext
-case class NandExpression(exp1: EC, exp2: EC) extends ExpressionContext
-case class XorExpression(exp1: EC, exp2: EC) extends ExpressionContext
-case class XnorExpression(exp1: EC, exp2: EC) extends ExpressionContext
-case class OrExpression(exp1: EC, exp2: EC) extends ExpressionContext
-case class NorExpression(exp1: EC, exp2: EC) extends ExpressionContext
+case class NotExpression(exp: ExpressionContext) extends ExpressionContext
+case class AndExpression(exp1: ExpressionContext, exp2: ExpressionContext) extends ExpressionContext
+case class NandExpression(exp1: ExpressionContext, exp2: ExpressionContext) extends ExpressionContext
+case class XorExpression(exp1: ExpressionContext, exp2: ExpressionContext) extends ExpressionContext
+case class XnorExpression(exp1: ExpressionContext, exp2: ExpressionContext) extends ExpressionContext
+case class OrExpression(exp1: ExpressionContext, exp2: ExpressionContext) extends ExpressionContext
+case class NorExpression(exp1: ExpressionContext, exp2: ExpressionContext) extends ExpressionContext
 case class BooleanValue(value: Boolean) extends ExpressionContext
 case class Variable(name: String) extends ExpressionContext
 case class CircuitCallContext(name: String, arguments: List[ExpressionContext]) extends ExpressionContext
 
 
 class BoolexParser extends JavaTokenParsers with PackratParsers {
+  type EC = ExpressionContext
+
   override protected val whiteSpace = """(\s|#.*)+""".r
 
   lazy val module: PackratParser[ModuleContext] = positioned(
@@ -126,6 +129,3 @@ class BoolexParser extends JavaTokenParsers with PackratParsers {
     }
   )
 }
-
-val parser = new BoolexParser()
-println(parser.parseAll(parser.module, myCircuit))

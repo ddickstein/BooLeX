@@ -1,0 +1,25 @@
+circuit HA(d,e)
+	half_sum = (d ^ e)'' # unnecessary, but cool for parsing!
+	half_carry = d and e
+	out half_sum, half_carry
+end
+
+# This is a full-adder
+circuit FA(a,b,c)
+	temp_sum, temp_carry1 = HA(a,b)
+	sum, temp_carry2 = HA(temp_sum,c)
+	carry = temp_carry1 or temp_carry2
+	out sum, carry
+end
+
+circuit rippleCarry(g1,g2,g3,g4,h1,h2,h3,h4)
+   s1, c1 = HA(g1,h1)
+   s2, c2 = FA(g2,h2,c1)
+   s3, c3 = FA(g3,h3,c2)
+   s4, c4 = FA(g4,h4,c3)
+   out s1, s2, s3, s4
+end
+
+circuit main(u1,u2,u3,u4,v1,v2,v3,v4)
+    out rippleCarry(u1,u2,u3,u4,v1,v2,v3,v4)
+end
