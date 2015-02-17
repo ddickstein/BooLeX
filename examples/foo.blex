@@ -1,14 +1,14 @@
 # This RS latch is properly handled.
 circuit RSLatch(r,s)
-    P = r nor Q
-    Q = s nor P
-    out P, Q
+  P = r nor Q
+  Q = s nor P
+  out P, Q
 end
 
 circuit DLatch(d,clk)
-    out RSLatch(d' and clk, d and clk)
+  out RSLatch(d' and clk, d and clk)
 end
 
 circuit main(d,clk)
-    out DLatch(d,clk)
+  out DLatch(d,clk)
 end

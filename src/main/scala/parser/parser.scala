@@ -2,15 +2,14 @@ package parser
 
 import scala.util.parsing.combinator._
 import contexts._
+import errors._
 
 object BoolexParser {
-  def parse(input: String): Either[String, ModuleContext] = {
+  def parse(input: String): Either[CompileTimeError, ModuleContext] = {
     val result = BoolexParserImpl.parseAll(BoolexParserImpl.module, input)
     result match {
       case BoolexParserImpl.Success(result, _) => Right(result)
-      case BoolexParserImpl.NoSuccess(msg, next) => {
-        Left("[" + next.pos.line + ":" + next.pos.column + "] Syntax error: " + msg)
-      }
+      case BoolexParserImpl.NoSuccess(msg, next) => Left(SyntaxError(msg, next.pos.line, next.pos.column))
     }
   }
 
@@ -91,7 +90,7 @@ object BoolexParser {
 
     lazy val l4expression: PackratParser[ExpressionContext] = positioned(
       ( (l4expression ~ "\'")
-      | (("not" | "-") ~ l4expression)
+      | (("not\b".r | "-") ~ l4expression)
       | l5expression
     ) ^^ {
         case (exp: EC)~"\'" => NotExpression(exp)
@@ -103,8 +102,8 @@ object BoolexParser {
 
     lazy val l5expression: PackratParser[ExpressionContext] = positioned(
       ( "(" ~> l1expression <~ ")"
-      | "true"
-      | "false"
+      | "true\b".r
+      | "false\b".r
       | ident <~ not("(")
       | circuitCall
     ) ^^ {
