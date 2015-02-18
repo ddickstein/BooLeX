@@ -11,5 +11,8 @@ object Main {
     checkedParseTree.left.foreach(printerr)
     checkedParseTree.right.foreach(_ => println("Success!"))
     checkedParseTree.right.foreach(println)
+    
+    // val lex = new lexer.BoolexLexer()
+    // println(lex.test(specification))
   } 
 }

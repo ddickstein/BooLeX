@@ -1,22 +1,30 @@
 package parser
 
-import scala.util.parsing.combinator._
-import contexts._
-import errors._
+import errors.{CompileTimeError, SyntaxError}
+import lexer.BoolexLexer
+import scala.util.parsing.combinator.PackratParsers
+import scala.util.parsing.combinator.syntactical.StdTokenParsers
 
 object BoolexParser {
+  import contexts._
   def parse(input: String): Either[CompileTimeError, ModuleContext] = {
-    val result = BoolexParserImpl.parseAll(BoolexParserImpl.module, input)
+    val blxParser = new BoolexParserImpl()
+    val result = blxParser.parseAll(input)
     result match {
-      case BoolexParserImpl.Success(result, _) => Right(result)
-      case BoolexParserImpl.NoSuccess(msg, next) => Left(SyntaxError(msg, next.pos.line, next.pos.column))
+      case blxParser.Success(result, _) => Right(result)
+      case blxParser.NoSuccess(msg, next) => Left(SyntaxError(msg, next.pos.line, next.pos.column))
     }
   }
 
-  private object BoolexParserImpl extends JavaTokenParsers with PackratParsers {
+  private class BoolexParserImpl extends StdTokenParsers with PackratParsers {
     type EC = ExpressionContext
 
-    override protected val whiteSpace = """(\s|#.*)+""".r
+    override type Tokens = BoolexLexer
+    override val lexical = new BoolexLexer()
+
+    def parseAll(input: String): ParseResult[ModuleContext] = {
+      return phrase(module)(new lexical.Scanner(input))
+    }
 
     lazy val module: PackratParser[ModuleContext] = positioned(
       rep1(circuitDeclaration) ^^ (decs => ModuleContext(decs))
@@ -90,7 +98,7 @@ object BoolexParser {
 
     lazy val l4expression: PackratParser[ExpressionContext] = positioned(
       ( (l4expression ~ "\'")
-      | (("not\b".r | "-") ~ l4expression)
+      | (("not" | "-") ~ l4expression)
       | l5expression
     ) ^^ {
         case (exp: EC)~"\'" => NotExpression(exp)
@@ -102,8 +110,8 @@ object BoolexParser {
 
     lazy val l5expression: PackratParser[ExpressionContext] = positioned(
       ( "(" ~> l1expression <~ ")"
-      | "true\b".r
-      | "false\b".r
+      | "true"
+      | "false"
       | ident <~ not("(")
       | circuitCall
     ) ^^ {
@@ -112,11 +120,6 @@ object BoolexParser {
         case ident: String => Variable(ident)
         case exp: EC => exp
       }
-    )
-
-    override def ident: Parser[String] = (
-      """(?!(?:true|false)\b)\p{javaJavaIdentifierStart}\p{javaJavaIdentifierPart}*""".r
-      withFailureMessage "`true' and `false' are reserved keywords."
     )
   }
 }
