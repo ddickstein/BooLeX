@@ -2,12 +2,12 @@ package typechecker
 
 import scala.collection.mutable.HashMap
 
-abstract class BoolexType
-case object BooleanType extends BoolexType
-case class CircuitType(inputs: Int, outputs: Int) extends BoolexType
-case object BooleanPromiseType extends BoolexType // maybe make it a class so we bind promise to a symbol?
+sealed abstract class BoolexType
+final case object BooleanType extends BoolexType
+final case class CircuitType(inputs: Int, outputs: Int) extends BoolexType
+final case object BooleanPromiseType extends BoolexType // maybe make it a class so we bind promise to a symbol?
 
-class BoolexScope() {
+final class BoolexScope {
   private var scopes = List.empty[HashMap[String, BoolexType]]
   private var owners = List.empty[String]
   startScope("TOP")

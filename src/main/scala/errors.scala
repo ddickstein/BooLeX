@@ -1,7 +1,7 @@
 package errors {
-  abstract class CompileTimeError
-  case class SyntaxError(msg: String, line: Int, col: Int) extends CompileTimeError
-  case class TypeError(msg: String, line: Int, col: Int) extends CompileTimeError
+  sealed abstract class CompileTimeError
+  final case class SyntaxError(msg: String, line: Int, col: Int) extends CompileTimeError
+  final case class TypeError(msg: String, line: Int, col: Int) extends CompileTimeError
 }
 
 package object errors {
@@ -9,7 +9,7 @@ package object errors {
 
   def printerr(err: CompileTimeError) {
     def _printerr(line: Int, col: Int, errTyp: String, msg: String) {
-      Console.err.println(Console.RED + "[" + line + ":" + col + "] " + errTyp + ":" + Console.RESET + msg)
+      Console.err.println(Console.RED + "[" + line + ":" + col + "] " + errTyp + ": " + Console.RESET + msg)
     }
     err match {
       case SyntaxError(msg, line, col) => _printerr(line, col, "Syntax error", msg)

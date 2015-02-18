@@ -16,7 +16,7 @@ object BoolexParser {
     }
   }
 
-  private class BoolexParserImpl extends StdTokenParsers with PackratParsers {
+  final private class BoolexParserImpl extends StdTokenParsers with PackratParsers {
     type EC = ExpressionContext
 
     override type Tokens = BoolexLexer
