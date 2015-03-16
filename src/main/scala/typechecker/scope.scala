@@ -6,6 +6,7 @@ sealed abstract class BoolexType
 final case object BooleanType extends BoolexType
 final case class CircuitType(inputs: Int, outputs: Int) extends BoolexType
 final case object BooleanPromiseType extends BoolexType // maybe make it a class so we bind promise to a symbol?
+final case object IncompleteType extends BoolexType // stub type we will complete at a later stage
 
 final class BoolexScope {
   private var scopes = List.empty[HashMap[String, BoolexType]]
@@ -32,12 +33,24 @@ final class BoolexScope {
   
   def getSymbolType(symbol: String): Option[BoolexType] = scopes.find(_.contains(symbol)).flatMap(_.get(symbol))
 
-  def addSymbol(symbol: String, typ: BoolexType): Boolean = {
+  def containsSymbol(symbol: String): Boolean = scopes.exists(_.contains(symbol))
+
+  def addSymbol(symbol: String, typ: BoolexType = IncompleteType): Boolean = {
     if (getSymbolType(symbol).nonEmpty) {
       return false
     } else {
       scopes.head.put(symbol, typ)
       return true
+    }
+  }
+
+  def completeType(symbol: String, typ: BoolexType): Boolean = {
+    scope = scopes.find(_.contains(symbol))
+    if (scope.get(symbol).contains(IncompleteType)) {
+      scope.put(symbol, typ)
+      return true
+    } else {
+      return false
     }
   }
 }

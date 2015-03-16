@@ -8,7 +8,6 @@ object Main {
     val parseTree = BoolexParser.parse(specification)
     val checkedParseTree = parseTree.right.flatMap(BoolexTypeChecker.check)
     checkedParseTree.left.foreach(errors.printerr)
-    checkedParseTree.right.foreach(_ => println("Success!"))
-    checkedParseTree.right.foreach(println)
+    checkedParseTree.right.foreach(result => println("Success!\n" + result))
   } 
 }

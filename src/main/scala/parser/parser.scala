@@ -12,7 +12,7 @@ object BoolexParser {
     val result = blxParser.parseAll(input)
     result match {
       case blxParser.Success(result, _) => Right(result)
-      case blxParser.NoSuccess(msg, next) => Left(SyntaxError(msg, next.pos.line, next.pos.column))
+      case blxParser.NoSuccess(msg, next) => Left(SyntaxError(msg, Some(next.pos)))
     }
   }
 
@@ -27,23 +27,23 @@ object BoolexParser {
     }
 
     lazy val module: PackratParser[ModuleContext] = positioned(
-      rep1(circuitDeclaration) ^^ (decs => ModuleContext(decs))
+      rep1(circuitDeclaration) ^^ (circuits => ModuleContext(circuits))
     )
     
     lazy val circuitDeclaration: PackratParser[CircuitDeclarationContext] = positioned((
-        "circuit" ~ ident ~ opt("(" ~ rep1sep(ident, ",") ~ ")") ~
+        "circuit" ~ symbol ~ opt("(" ~ rep1sep(symbol, ",") ~ ")") ~
           rep(assignment) ~
           outStatement ~
         "end"
       ) ^^ {
-        case "circuit"~name~Some("("~(params)~")")~body~out~"end" =>
+        case "circuit"~name~Some("("~params~")")~body~out~"end" =>
           CircuitDeclarationContext(name, Some(params), body, out)
         case "circuit"~name~None~body~out~"end" => CircuitDeclarationContext(name, None, body, out)
       }
     )
     
     lazy val assignment: PackratParser[AssignmentContext] = positioned(
-      rep1sep(ident, ",") ~ "=" ~ rep1sep(l1expression, ",") ^^ {
+      rep1sep(symbol, ",") ~ "=" ~ rep1sep(l1expression, ",") ^^ {
         case variables~"="~values => AssignmentContext(variables, values)
       }
     )
@@ -55,7 +55,7 @@ object BoolexParser {
     )
 
     lazy val circuitCall: PackratParser[CircuitCallContext] = positioned(
-      ident ~ "(" ~ repsep(l1expression, ",") ~ ")" ^^ {
+      symbol ~ "(" ~ repsep(l1expression, ",") ~ ")" ^^ {
         case name~"("~args~")" => CircuitCallContext(name, args)
       }
     )
@@ -112,14 +112,16 @@ object BoolexParser {
       ( "(" ~> l1expression <~ ")"
       | "true"
       | "false"
-      | ident <~ not("(")
+      | symbol <~ not("(")
       | circuitCall
     ) ^^ {
         case "true" => BooleanValue(true)
         case "false" => BooleanValue(false)
-        case ident: String => Variable(ident)
+        case Symbol(name) => Variable(name)
         case exp: EC => exp
       }
     )
+
+    lazy val symbol: PackratParser[Symbol] = positioned(ident ^^ Symbol)
   }
 }
