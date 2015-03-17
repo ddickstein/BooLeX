@@ -2,9 +2,9 @@ import scala.util.parsing.input.Position
 
 package errors {
   sealed abstract class CompileTimeError
-  final case class SyntaxError(msg: String, posOpt: Option[Position]) extends CompileTimeError
-  final case class TypeError(msg: String, posOpt: Option[Position]) extends CompileTimeError
-  final case class MiscError(msg: String, posOpt: Option[Position]) extends CompileTimeError
+  final case class SyntaxError(msg: String, posOpt: Option[Position] = None) extends CompileTimeError
+  final case class TypeError(msg: String, posOpt: Option[Position] = None) extends CompileTimeError
+  final case class MiscError(msg: String, posOpt: Option[Position] = None) extends CompileTimeError
   final case class ErrorList(errors: Seq[CompileTimeError]) extends CompileTimeError
 }
 
