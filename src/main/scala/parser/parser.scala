@@ -7,12 +7,12 @@ import scala.util.parsing.combinator.syntactical.StdTokenParsers
 
 object BoolexParser {
   import contexts._
-  def parse(input: String): Either[CompileTimeError, ModuleContext] = {
+  def parse(input: String): Either[Seq[CompileTimeError], ModuleContext] = {
     val blxParser = new BoolexParserImpl()
     val result = blxParser.parseAll(input)
     result match {
       case blxParser.Success(result, _) => Right(result)
-      case blxParser.NoSuccess(msg, next) => Left(SyntaxError(msg, Some(next.pos)))
+      case blxParser.NoSuccess(msg, next) => Left(List(SyntaxError(msg, Some(next.pos))))
     }
   }
 

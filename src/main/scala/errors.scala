@@ -5,7 +5,7 @@ package errors {
   final case class SyntaxError(msg: String, posOpt: Option[Position] = None) extends CompileTimeError
   final case class TypeError(msg: String, posOpt: Option[Position] = None) extends CompileTimeError
   final case class MiscError(msg: String, posOpt: Option[Position] = None) extends CompileTimeError
-  final case class ErrorList(errors: Seq[CompileTimeError]) extends CompileTimeError
+  final case class Warning(msg: String, posOpt: Option[Position] = None) extends CompileTimeError
 }
 
 package object errors {
@@ -17,11 +17,16 @@ package object errors {
       Console.err.println(Console.RED + pos + errTyp + ": " + Console.RESET + msg)
     }
 
+    def _printwarning(msg: String, posOpt: Option[Position]) {
+      val pos = posOpt.map(pos => "[" + pos + "] ").getOrElse("")
+      Console.err.println(Console.YELLOW + pos + "Warning: " + Console.RESET + msg)
+    }
+
     err match {
       case SyntaxError(msg, posOpt) => _printerr("Syntax error", msg, posOpt)
       case TypeError(msg, posOpt) => _printerr("Type error", msg, posOpt)
       case MiscError(msg, posOpt) => _printerr("Error", msg, posOpt)
-      case ErrorList(errors) => errors.foreach(printerr)
+      case Warning(msg, posOpt) => _printwarning(msg, posOpt)
     }
   }
 }

@@ -3,9 +3,15 @@ circuit Alpha(z)
   out A
 end
 
-circuit Beta(z)
-  i,j = k, DLatch(true, true)
-  out z
+circuit Beta(y,z)
+  a_foo,b = y,z
+  q = true and y
+  out z, q
+end
+
+
+circuit DLatch(d,clk)
+  out RSLatch(d' and clk, d and clk)
 end
 
 # This RS latch is properly handled.
@@ -15,9 +21,6 @@ circuit RSLatch(r,s)
   out P, Q
 end
 
-circuit DLatch(d,clk)
-  out RSLatch(d' and clk, d and clk)
-end
 
 circuit main(d,clk)
   out DLatch(d,clk)

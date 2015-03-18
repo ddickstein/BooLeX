@@ -1,15 +1,15 @@
 package typechecker
 
-import errors.{CompileTimeError, ErrorList, MiscError, TypeError}
+import errors.{CompileTimeError, MiscError, TypeError, Warning}
 import identity._
 import library._
 
 object BoolexTypeChecker {
   import parser.contexts._
-  def check(module: ModuleContext): Either[CompileTimeError, ModuleContext] = {
+  def check(module: ModuleContext): (Seq[CompileTimeError], Seq[CompileTimeError]) = {
     val blxTypeChecker = new BoolexTypeCheckerImpl()
     val errors = blxTypeChecker.checkModule(module)
-    if (errors.isEmpty) Right(module) else Left(ErrorList(errors))
+    return errors.partition(_.isInstanceOf[Warning])
   }
 
   final private class BoolexTypeCheckerImpl {
@@ -52,24 +52,57 @@ object BoolexTypeChecker {
     }
 
     def checkCircuitDeclaration(declaration: CircuitDeclarationContext): Seq[CompileTimeError] = {
-      val name = declaration.name.name
+      val circuitName = declaration.name.name
       val formals = declaration.paramsOpt.toList.flatten
-      scopes.startScope(name)
+      val assignments = declaration.assignments
+      val output = declaration.output
+      scopes.startScope(circuitName)
       val duplicateParameterNamesErrors = for {
         formal <- formals
         if !scopes.addSymbol(formal.name, BooleanType)
       } yield {
         MiscError("Duplicate identifier: \'" + formal.name + "\'", Some(formal.pos))
       }
-      val assignmentErrors = declaration.assignments.flatMap(checkAssignment)
-      val outputErrors = checkOutStatement(declaration.output)
+      val assignmentErrors = assignments.flatMap(checkAssignment)
+      val outputErrors = checkOutStatement(output)
       val promiseErrors = for {
         (variable, pos) <- scopes.getPersonalPromises
       } yield {
         MiscError("Unfulfilled promise: \'" + variable + "\'", Some(pos))
       }
       scopes.endScope
-      return duplicateParameterNamesErrors ++: assignmentErrors ++: promiseErrors ++: outputErrors
+      val allErrors = duplicateParameterNamesErrors ++: assignmentErrors ++: promiseErrors ++: outputErrors
+      val warnings = if (allErrors.isEmpty) {
+        val outputDependencyGraph = {
+          val inputDependencies = List("%input%" -> Set.empty[String])
+          val formalDependencies = formals.map(_.name -> Set("%input%"))
+          val localDependencies = for {
+            assignment <- assignments
+            dependencies = assignment.values.flatMap(getVariablesInExpression).toSet
+            variable <- assignment.variables.map(_.name)
+          } yield {
+            variable -> dependencies
+          }
+          val outputDependencies = List(("%output%" -> output.outputs.flatMap(getVariablesInExpression).toSet))
+          (inputDependencies ++: formalDependencies ++: localDependencies ++: outputDependencies).toMap
+        }
+        val allVariablesByName = (formals ++: assignments.flatMap(_.variables)).mapBy(_.name)
+        val inputDependencyGraph = outputDependencyGraph.invert
+        val variablesAffectedByInput = findAllDependencies(inputDependencyGraph, "%input%")
+        val variablesAffectingOutput = findAllDependencies(outputDependencyGraph, "%output%")
+        val variablesNotAffectedByInput = allVariablesByName.keys.toSet -- variablesAffectedByInput
+        val variablesNotAffectingOutput = allVariablesByName.keys.toSet -- variablesAffectingOutput
+        (for (name <- variablesNotAffectedByInput) yield {
+          Warning("Variable \'" + name + "\' is not affected by the input to circuit \'" + circuitName + "\'",
+            allVariablesByName.get(name).map(_.pos))
+        }) ++: (for (name <- variablesNotAffectingOutput) yield {
+          Warning("Variable \'" + name + "\' does not affect the output of circuit \'" + circuitName + "\'",
+            allVariablesByName.get(name).map(_.pos))
+        }).toList
+      } else {
+        Nil
+      }
+      return allErrors ++: warnings
     }
 
     def checkAssignment(assignment: AssignmentContext): Seq[CompileTimeError] = {
@@ -157,6 +190,19 @@ object BoolexTypeChecker {
       case _ => 1
     }
 
+    def getVariablesInExpression(exp: ExpressionContext): Seq[String] = exp match {
+      case NotExpression(exp) => getVariablesInExpression(exp)
+      case AndExpression(exp1, exp2) => getVariablesInExpression(exp1) ++: getVariablesInExpression(exp2)
+      case NandExpression(exp1, exp2) => getVariablesInExpression(exp1) ++: getVariablesInExpression(exp2)
+      case XorExpression(exp1, exp2) => getVariablesInExpression(exp1) ++: getVariablesInExpression(exp2)
+      case XnorExpression(exp1, exp2) => getVariablesInExpression(exp1) ++: getVariablesInExpression(exp2)
+      case OrExpression(exp1, exp2) => getVariablesInExpression(exp1) ++: getVariablesInExpression(exp2)
+      case NorExpression(exp1, exp2) => getVariablesInExpression(exp1) ++: getVariablesInExpression(exp2)
+      case BooleanValue(value) => Nil
+      case Variable(name) => List(name)
+      case CircuitCallContext(_, arguments) => arguments.flatMap(getVariablesInExpression)
+    }
+
     def getCircuitDependencies(declaration: CircuitDeclarationContext): Set[String] = {
       def _getCircuitDependencies(context: Context): Set[String] = context match {
         case AssignmentContext(_, values) => values.map(_getCircuitDependencies).flatten.toSet
@@ -207,6 +253,20 @@ object BoolexTypeChecker {
         }
       }
       return None
+    }
+
+    def findAllDependencies[A](dependencyGraph: Map[A, Set[A]], node: A): Set[A] = {
+      val dependencies = scala.collection.mutable.Set.empty[A]
+      val nodesToSearch = scala.collection.mutable.Queue(node)
+      while (nodesToSearch.nonEmpty) {
+        val next = nodesToSearch.dequeue
+        if (!dependencies.contains(next)) {
+          dependencies += next
+          nodesToSearch ++= dependencyGraph.getOrElse(next, Nil)
+        }
+      }
+      dependencies -= node
+      return dependencies.toSet
     }
 
     def topologicalSort[A](dependencyGraph: Map[A, Set[A]]): Seq[A] = {
