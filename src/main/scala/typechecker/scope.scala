@@ -1,10 +1,11 @@
 package typechecker
 
 import scala.collection.mutable.HashMap
+import scala.util.parsing.input.Position
 
 sealed abstract class BoolexType
 final case object BooleanType extends BoolexType
-final case object BooleanPromiseType extends BoolexType
+final case class BooleanPromiseType(pos: Position) extends BoolexType
 final case class CircuitType(inputs: Int, outputs: Int) extends BoolexType
 final case class PartialCircuitType(inputs: Int) extends BoolexType // stub type we will complete at a later stage
 
@@ -28,8 +29,6 @@ final class BoolexScope {
   }
 
   def getOwner: String = owners.head
-
-  def inContext(parent: String): Boolean = owners.contains(parent)
   
   def getSymbolType(symbol: String): Option[BoolexType] = scopes.find(_.contains(symbol)).flatMap(_.get(symbol))
 
@@ -44,11 +43,26 @@ final class BoolexScope {
     }
   }
 
-  def completeCircuit(symbol: String, typ: CircuitType): Boolean = (for {
+  def completeCircuit(symbol: String, outputs: Int): Boolean = (for {
     scope <- scopes.find(_.contains(symbol))
     typ <- scope.get(symbol)
     if typ.isInstanceOf[PartialCircuitType]
   } yield {
-    scope.put(symbol, typ)
+    scope.put(symbol, CircuitType(typ.asInstanceOf[PartialCircuitType].inputs, outputs))
   }).nonEmpty
+
+  def fillPromise(symbol: String): Boolean = (for {
+    scope <- scopes.find(_.contains(symbol))
+    val typeOpt = scope.get(symbol)
+    if typeOpt.forall(_.isInstanceOf[BooleanPromiseType])
+  } yield {
+    scope.put(symbol, BooleanType)
+  }).nonEmpty
+
+  def getPersonalPromises: Seq[(String, Position)] = (for { // return all promises made by this scope
+    (symbol, typ) <- scopes.head
+    if typ.isInstanceOf[BooleanPromiseType]
+  } yield {
+    (symbol -> typ.asInstanceOf[BooleanPromiseType].pos)
+  }).toList
 }

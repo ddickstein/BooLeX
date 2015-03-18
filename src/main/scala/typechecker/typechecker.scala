@@ -4,25 +4,18 @@ import errors.{CompileTimeError, ErrorList, MiscError, TypeError}
 import identity._
 import library._
 
-sealed abstract class TypeCheckResult[+T]
-final case class Success[+T](result: T) extends TypeCheckResult[T]
-final case class NoSuccess(errors: Seq[CompileTimeError]) extends TypeCheckResult[Nothing]
-
 object BoolexTypeChecker {
   import parser.contexts._
   def check(module: ModuleContext): Either[CompileTimeError, ModuleContext] = {
     val blxTypeChecker = new BoolexTypeCheckerImpl()
-    val result = blxTypeChecker.checkModule(module)
-    result match {
-      case Success(result) => Right(result)
-      case NoSuccess(errors) => Left(ErrorList(errors))
-    }
+    val errors = blxTypeChecker.checkModule(module)
+    if (errors.isEmpty) Right(module) else Left(ErrorList(errors))
   }
 
   final private class BoolexTypeCheckerImpl {
     val scopes = new BoolexScope()
 
-    def checkModule(module: ModuleContext): TypeCheckResult[ModuleContext] = {
+    def checkModule(module: ModuleContext): Seq[CompileTimeError] = {
       val duplicateCircuitNameErrors = (for {
         circuit <- module.circuits
         name = circuit.name.name
@@ -33,9 +26,9 @@ object BoolexTypeChecker {
           .optionally(MiscError("Duplicate identifier: \'" + name + "\'", Some(pos)))
       }).flatten
       val noMainError = (!scopes.containsSymbol("main"))
-        .optionally(MiscError("Could not find \'main\' circuit.")).toList
+        .optionally(MiscError("Could not find \'main\' circuit")).toList
       if (duplicateCircuitNameErrors.size + noMainError.size > 0) {
-        return NoSuccess(noMainError ++: duplicateCircuitNameErrors)
+        return noMainError ++: duplicateCircuitNameErrors
       } else {
         val dependencyGraph = (for {
           circuit <- module.circuits
@@ -44,52 +37,101 @@ object BoolexTypeChecker {
         } yield (name -> dependencies)).toMap
         val cyclicErrors = checkCyclicDependencies(dependencyGraph)
         if (cyclicErrors.nonEmpty) {
-          return NoSuccess(cyclicErrors.toList)
+          return cyclicErrors.toList
         } else {
           val circuitsByName = module.circuits.mapBy(_.name.name)
-          val errorList = getErrors(for {
+          val errorList = (for {
             name <- topologicalSort(dependencyGraph)
             circuit <- circuitsByName.get(name)
           } yield {
             checkCircuitDeclaration(circuit)
-          })
-          return if (errorList.isEmpty) Success(module) else NoSuccess(errorList)
+          }).flatten
+          return errorList
         }
       }
     }
 
-    def checkCircuitDeclaration(declaration: CircuitDeclarationContext): TypeCheckResult[CircuitDeclarationContext] = {
+    def checkCircuitDeclaration(declaration: CircuitDeclarationContext): Seq[CompileTimeError] = {
       val name = declaration.name.name
       val formals = declaration.paramsOpt.toList.flatten
       scopes.startScope(name)
-      val duplicateParameterNamesErrorOpts = formals.map(formal => {
-        (!scopes.addSymbol(formal.name, BooleanType))
-          .optionally(MiscError("Duplicate identifier: \'" + formal.name + "\'", Some(formal.pos)))
-      })
-      val assignmentErrors = getErrors(declaration.assignments.map(checkAssignment))
-      val outputErrors = getErrors(checkOutStatement(declaration.output))
+      val duplicateParameterNamesErrors = for {
+        formal <- formals
+        if !scopes.addSymbol(formal.name, BooleanType)
+      } yield {
+        MiscError("Duplicate identifier: \'" + formal.name + "\'", Some(formal.pos))
+      }
+      val assignmentErrors = declaration.assignments.flatMap(checkAssignment)
+      val outputErrors = checkOutStatement(declaration.output)
+      val promiseErrors = for {
+        (variable, pos) <- scopes.getPersonalPromises
+      } yield {
+        MiscError("Unfulfilled promise: \'" + variable + "\'", Some(pos))
+      }
       scopes.endScope
-      val errorList = duplicateParameterNamesErrorOpts.flatten ++: assignmentErrors ++: outputErrors
-      return if (errorList.isEmpty) Success(declaration) else NoSuccess(errorList)
+      return duplicateParameterNamesErrors ++: assignmentErrors ++: promiseErrors ++: outputErrors
     }
 
-    def checkAssignment(assignment: AssignmentContext): TypeCheckResult[AssignmentContext] = {
-
+    def checkAssignment(assignment: AssignmentContext): Seq[CompileTimeError] = {
+      val variables = assignment.variables
+      val values = assignment.values
+      val outputs = values.flatMap(value => List.fill(countExpressionOutputs(value))(value))
+      val assignmentErrors = (if (variables.size > outputs.size) {
+        val variable = variables(outputs.size)
+        Some(MiscError("Missing value for variable \'" + variable.name + "\'", Some(variable.pos)))
+      } else if (outputs.size > variables.size) {
+        val value = outputs(variables.size)
+        Some(MiscError(
+          "Missing variable for expression. Be sure to account for all expression outputs.",
+          Some(value.pos)
+        ))
+      } else {
+        None
+      }).toList
+      val duplicateIdentifierErrors = (for {
+        variable <- variables
+      } yield {
+        (!scopes.fillPromise(variable.name))
+          .optionally(MiscError("Duplicate identifier: \'" + variable.name + "\'", Some(variable.pos)))
+      }).flatten
+      val expressionErrors = (for {
+        value <- values
+      } yield {
+        checkExpression(value)
+      }).flatten
+      return assignmentErrors ++: duplicateIdentifierErrors ++: expressionErrors
     }
 
-    def checkOutStatement(outStatement: OutStatementContext): TypeCheckResult[OutStatementContext] = {
-      
+    def checkOutStatement(outStatement: OutStatementContext): Seq[CompileTimeError] = {
+      val currentCircuit = scopes.getOwner
+      val outputs = outStatement.outputs
+      scopes.completeCircuit(currentCircuit, outputs.map(countExpressionOutputs).sum)
+      return outputs.flatMap(checkExpression)
     }
 
-    def getErrors(result: TypeCheckResult[Context]): Seq[CompileTimeError] = {
-      (result.isInstanceOf[NoSuccess]).optionally(result.asInstanceOf[NoSuccess].errors).toList.flatten
+    def checkExpression(expression: ExpressionContext): Seq[CompileTimeError] = expression match {
+      case NotExpression(exp) => checkExpression(exp)
+      case AndExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
+      case NandExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
+      case XorExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
+      case XnorExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
+      case OrExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
+      case NorExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
+      case BooleanValue(value) => Nil
+      case Variable(name) => (for {
+        variableType <- scopes.getSymbolType(name)
+        if variableType != BooleanType
+        if !variableType.isInstanceOf[BooleanPromiseType]
+      } yield {
+        TypeError("Expected true/false value for \'" + name + "\'", Some(expression.pos))
+      }).orElse({
+        scopes.addSymbol(name, BooleanPromiseType(expression.pos))
+        None
+      }).toList
+      case CircuitCallContext(name: Symbol, arguments: Seq[ExpressionContext]) => {
+        Nil //TODO(dani): replace this
+      }
     }
-
-    def getErrors(results: Seq[TypeCheckResult[Context]]): Seq[CompileTimeError] = for {
-      result <- results
-      if result.isInstanceOf[NoSuccess]
-      error <- result.asInstanceOf[NoSuccess].errors
-    } yield error
 
     def countExpressionOutputs(exp: ExpressionContext): Int = exp match {
       case NotExpression(exp) => countExpressionOutputs(exp)
@@ -101,7 +143,6 @@ object BoolexTypeChecker {
       case NorExpression(exp1, exp2) => countExpressionOutputs(exp1) + countExpressionOutputs(exp2)
       case BooleanValue(value: Boolean) => 1
       case Variable(name: String) => 1
-      // TODO(dani): confirm that the circuit is fully defined at this point
       case CircuitCallContext(name, arguments) => scopes.getSymbolType(name.name)
         .map(_.asInstanceOf[CircuitType].outputs)
         .getOrElse(0)
@@ -131,8 +172,9 @@ object BoolexTypeChecker {
           dependency <- mutableGraph.getOrElse(node, Nil)
         } yield {
           if (parents.contains(dependency)) {
+            val cyclicParents = parents.take(parents.indexOf(dependency) + 1)
             val dependencyError = MiscError("Circular dependency: " +
-              (node +: (node +: parents.take(parents.indexOf(dependency) + 1)).reverse).mkString(" -> ")
+              (node +: (cyclicParents.applyIf(!_.contains(node))(node +: _)).reverse).mkString(" -> ")
             )
             return (Set(node), Some(dependencyError))
           } else {
