@@ -51,13 +51,15 @@ final class BoolexScope {
     scope.put(symbol, CircuitType(typ.asInstanceOf[PartialCircuitType].inputs, outputs))
   }).nonEmpty
 
-  def fillPromise(symbol: String): Boolean = (for {
-    scope <- scopes.find(_.contains(symbol))
-    val typeOpt = scope.get(symbol)
-    if typeOpt.forall(_.isInstanceOf[BooleanPromiseType])
-  } yield {
-    scope.put(symbol, BooleanType)
-  }).nonEmpty
+  def fillPromise(symbol: String): Boolean = {
+    val scopeOpt = scopes.find(_.contains(symbol))
+    if (scopeOpt.nonEmpty && scopeOpt.flatMap(_.get(symbol)).exists(!_.isInstanceOf[BooleanPromiseType])) {
+      return false
+    } else {
+      scopeOpt.getOrElse(scopes.head).put(symbol, BooleanType)
+      return true
+    }
+  }
 
   def getPersonalPromises: Seq[(String, Position)] = (for { // return all promises made by this scope
     (symbol, typ) <- scopes.head

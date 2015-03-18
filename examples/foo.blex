@@ -1,3 +1,13 @@
+circuit Alpha(z)
+  A = z
+  out A
+end
+
+circuit Beta(z)
+  i,j = k, DLatch(true, true)
+  out z
+end
+
 # This RS latch is properly handled.
 circuit RSLatch(r,s)
   P = r nor Q

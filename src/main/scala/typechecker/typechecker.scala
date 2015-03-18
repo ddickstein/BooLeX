@@ -91,7 +91,8 @@ object BoolexTypeChecker {
       val duplicateIdentifierErrors = (for {
         variable <- variables
       } yield {
-        (!scopes.fillPromise(variable.name))
+        val temp = scopes.fillPromise(variable.name)
+        (!temp)
           .optionally(MiscError("Duplicate identifier: \'" + variable.name + "\'", Some(variable.pos)))
       }).flatten
       val expressionErrors = (for {
@@ -129,23 +130,31 @@ object BoolexTypeChecker {
         None
       }).toList
       case CircuitCallContext(name: Symbol, arguments: Seq[ExpressionContext]) => {
-        Nil //TODO(dani): replace this
+        val typeOpt = scopes.getSymbolType(name.name)
+        val typeErrors = if (typeOpt.exists(_.isInstanceOf[CircuitType])) {
+          val numFormalParameters = typeOpt.map(_.asInstanceOf[CircuitType].inputs).getOrElse(0)
+          val numActualParameters = arguments.map(countExpressionOutputs).sum
+          (numActualParameters != numFormalParameters).optionally({
+            TypeError("Expected " + numFormalParameters + " parameters for " +
+              name.name + " but " + numActualParameters + " arguments were found", Some(name.pos))
+          }).toList
+        } else {
+          List(TypeError("\'" + name.name + "\' is not a circuit.", Some(name.pos)))
+        }
+        val argumentErrors = (for {
+          argument <- arguments
+        } yield {
+          checkExpression(argument)
+        }).flatten
+        return typeErrors ++: argumentErrors
       }
     }
 
     def countExpressionOutputs(exp: ExpressionContext): Int = exp match {
-      case NotExpression(exp) => countExpressionOutputs(exp)
-      case AndExpression(exp1, exp2) => countExpressionOutputs(exp1) + countExpressionOutputs(exp2)
-      case NandExpression(exp1, exp2) => countExpressionOutputs(exp1) + countExpressionOutputs(exp2)
-      case XorExpression(exp1, exp2) => countExpressionOutputs(exp1) + countExpressionOutputs(exp2)
-      case XnorExpression(exp1, exp2) => countExpressionOutputs(exp1) + countExpressionOutputs(exp2)
-      case OrExpression(exp1, exp2) => countExpressionOutputs(exp1) + countExpressionOutputs(exp2)
-      case NorExpression(exp1, exp2) => countExpressionOutputs(exp1) + countExpressionOutputs(exp2)
-      case BooleanValue(value: Boolean) => 1
-      case Variable(name: String) => 1
       case CircuitCallContext(name, arguments) => scopes.getSymbolType(name.name)
         .map(_.asInstanceOf[CircuitType].outputs)
         .getOrElse(0)
+      case _ => 1
     }
 
     def getCircuitDependencies(declaration: CircuitDeclarationContext): Set[String] = {
@@ -204,7 +213,8 @@ object BoolexTypeChecker {
       val mutableGraph = scala.collection.mutable.Map() ++ (for {
         (node, dependencies) <- dependencyGraph
       } yield {
-        (node -> scala.collection.mutable.Set(dependencies.toSeq:_*))
+        val realDependencies = dependencies & dependencyGraph.keys.toSet
+        (node -> scala.collection.mutable.Set(realDependencies.toSeq:_*))
       })
       val linearizedDependencies = scala.collection.mutable.ListBuffer.empty[A]
       val independentNodes = scala.collection.mutable.Set.empty[A]
