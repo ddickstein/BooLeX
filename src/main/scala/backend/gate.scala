@@ -12,6 +12,7 @@ case object NotGate extends Gate {
     def receive(signal: Signal, queue: SignalQueue) {
       queue.fire(new Signal(output, !input.value, 1))
     }
+    override def toString: String = "NOT[" + input + "] => " + output
   }
 }
 
@@ -26,6 +27,7 @@ case object AndGate extends Gate {
     def receive(signal: Signal, queue: SignalQueue) {
       queue.fire(new Signal(output, input1.value && input2.value, 1))
     }
+    override def toString: String = "AND[" + input1 + ", " + input2 + "] => " + output
   }
 }
 
@@ -40,6 +42,7 @@ case object OrGate extends Gate {
     def receive(signal: Signal, queue: SignalQueue) {
       queue.fire(new Signal(output, input1.value || input2.value, 1))
     }
+    override def toString: String = "OR[" + input1 + ", " + input2 + "] => " + output
   }
 }
 
@@ -54,6 +57,7 @@ case object XorGate extends Gate {
     def receive(signal: Signal, queue: SignalQueue) {
       queue.fire(new Signal(output, input1.value ^ input2.value, 1))
     }
+    override def toString: String = "XOR[" + input1 + ", " + input2 + "] => " + output
   }
 }
 
@@ -68,6 +72,7 @@ case object NandGate extends Gate {
     def receive(signal: Signal, queue: SignalQueue) {
       queue.fire(new Signal(output, !(input1.value && input2.value), 1))
     }
+    override def toString: String = "NAND[" + input1 + ", " + input2 + "] => " + output
   }
 }
 
@@ -82,6 +87,7 @@ case object NorGate extends Gate {
     def receive(signal: Signal, queue: SignalQueue) {
       queue.fire(new Signal(output, !(input1.value || input2.value), 1))
     }
+    override def toString: String = "NOR[" + input1 + ", " + input2 + "] => " + output
   }
 }
 
@@ -96,5 +102,6 @@ case object XnorGate extends Gate {
     def receive(signal: Signal, queue: SignalQueue) {
       queue.fire(new Signal(output, !(input1.value ^ input2.value), 1))
     }
+    override def toString: String = "XNOR[" + input1 + ", " + input2 + "] => " + output
   }
 }

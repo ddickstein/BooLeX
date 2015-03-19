@@ -9,6 +9,7 @@ class Socket(var idOpt: Option[String] = None, private var _value: Boolean = fal
     _value = signal.value
     targets.foreach(target => queue.fire(new Signal(target, value, 0)))
   }
+  override def toString: String = "(" + idOpt.getOrElse("?") + ": " + value + ")"
 }
 
-class ConstantSocket(override val value: Boolean) extends Socket(None, value)
+class ConstantSocket(override val value: Boolean) extends Socket(Some("$" + value.toString.toUpperCase + "$"), value)

@@ -49,6 +49,9 @@ package object library {
   implicit def map2MyMap[A, B](_map: Map[A, B]) = new MyMap(_map)
   implicit def tuple22MyTuple2[A, B](_tup: Tuple2[A, B]) = new MyTuple2(_tup)
   implicit def value2Identity[A](_value: A) = new Identity(_value)
+
+  val debugging = true
+  def debug(msg: String): Unit = if (debugging) { println(Console.YELLOW + msg + Console.RESET) }
 }
 
 

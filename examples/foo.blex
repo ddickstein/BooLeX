@@ -1,18 +1,3 @@
-circuit Alpha(z)
-  A = z
-  out A
-end
-
-circuit Beta(y,z)
-  q = true and y
-  out z, q
-end
-
-
-circuit DLatch(d,clk)
-  out RSLatch(d' and clk, d and clk)
-end
-
 # This RS latch is properly handled.
 circuit RSLatch(r,s)
   P = r nor Q
@@ -20,7 +5,23 @@ circuit RSLatch(r,s)
   out P, Q
 end
 
+circuit DLatch(d,clk)
+  out RSLatch(d' and clk, d and clk)
+end
 
-circuit main(d,clk)
+circuit original_main(d,clk)
   out DLatch(d,clk)
+end
+
+
+circuit no_call_main(d, clk)
+  r = not d and clk
+  s = d and clk
+  p = r nor q
+  q = s nor p
+  out p, q
+end
+
+circuit main(a)
+  out a
 end

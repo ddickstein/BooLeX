@@ -9,7 +9,10 @@ case class Circuit(val inputs: Seq[Socket], val outputs: Seq[Socket]) {
 }
 
 class CircuitBuilder extends IRTreeBuilder[Circuit] {
-  val constantSockets = Map(true -> new ConstantSocket(true), false -> new ConstantSocket(false))
+  private val constantSockets = Map(true -> new ConstantSocket(true), false -> new ConstantSocket(false))
+
+  def trueSocket: Socket = constantSockets(true)
+  def falseSocket: Socket = constantSockets(false)
 
   def newNode(socketIdOpt: Option[String]): Circuit = new Circuit(socketIdOpt)
   def newConstNode(value: Boolean): Circuit = new Circuit(constantSockets(value))
