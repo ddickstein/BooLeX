@@ -15,7 +15,6 @@ object Main {
     checkedParseTree.left.foreach(_.foreach(errors.printerr))
     checkedParseTree.right.foreach({ case (warnings, module) => {
       warnings.foreach(errors.printerr)
-      println("Success!\n" + module)
     }})
   } 
 }

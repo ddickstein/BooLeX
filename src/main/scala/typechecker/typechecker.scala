@@ -1,7 +1,6 @@
 package typechecker
 
 import errors.{CompileTimeError, MiscError, TypeError, Warning}
-import identity._
 import library._
 
 object BoolexTypeChecker {

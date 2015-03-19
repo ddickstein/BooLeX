@@ -4,7 +4,6 @@ circuit Alpha(z)
 end
 
 circuit Beta(y,z)
-  a_foo,b = y,z
   q = true and y
   out z, q
 end
