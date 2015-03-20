@@ -7,7 +7,7 @@ import scala.collection.JavaConverters._
 
 import library._
 
-class CircuitRunner(delayTime: Int, callback: Set[(String, Boolean)] => Unit) {
+class CircuitRunner(delayTime: Int, callback: Seq[(String, Boolean)] => Unit) {
   private val stabilizer = new Stabilizer[Signal]
   private val waitingDock = new ConcurrentLinkedQueue[Signal] // waiting for the loading dock to clear
   private val loadingDock = new ConcurrentLinkedQueue[Signal] // loaded into the signal queue for firing
@@ -67,7 +67,7 @@ class CircuitRunner(delayTime: Int, callback: Set[(String, Boolean)] => Unit) {
             case e: InterruptedException => Thread.currentThread.interrupt // restore interrupted signal
           }
         }
-        val receivers = scala.collection.mutable.Set.empty[(String, Boolean)]
+        val receivers = scala.collection.mutable.SortedSet.empty[(String, Boolean)]
         while (!signalQueue.isEmpty && signalQueue.first.delay == 0) {
           val signal = signalQueue.pollFirst
           debug("Firing " + signal)
@@ -82,7 +82,9 @@ class CircuitRunner(delayTime: Int, callback: Set[(String, Boolean)] => Unit) {
         } catch {
           case e: InterruptedException => Thread.currentThread.interrupt // restore interrupted signal
         } finally {
-          callback(receivers.toSet)
+          if (receivers.nonEmpty) {
+            callback(receivers.toList)
+          }
         }
       }
       try {

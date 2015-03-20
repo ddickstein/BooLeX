@@ -39,9 +39,34 @@ package library {
     }
   }
 
-  class MyTuple2[A, B](val _tup: Tuple2[A, B]) extends AnyVal {
-    def mapLeft[C](func: A => C): Tuple2[C, B] = (func(_tup._1) -> _tup._2)
-    def mapRight[C](func: B => C): Tuple2[A, C] = (_tup._1 -> func(_tup._2))
+  class MyTuple2[T1, T2](val _tup: Tuple2[T1, T2]) extends AnyVal {
+    def map1[A](func: T1 => A): Tuple2[A, T2] = (func(_tup._1), _tup._2)
+    def map2[A](func: T2 => A): Tuple2[T1, A] = (_tup._1, func(_tup._2))
+    def mapLeft[A](func: T1 => A): Tuple2[A, T2] = map1(func)
+    def mapRight[A](func: T2 => A): Tuple2[T1, A] = map2(func)
+    def toSeq(implicit ev: T1 =:= T2): Seq[T1] = Seq(_tup._1, _tup._2.asInstanceOf[T1])
+  }
+
+  class MyTuple3[T1, T2, T3](val _tup: Tuple3[T1, T2, T3]) extends AnyVal {
+    def map1[A](func: T1 => A): Tuple3[A, T2, T3] = (func(_tup._1), _tup._2, _tup._3)
+    def map2[A](func: T2 => A): Tuple3[T1, A, T3] = (_tup._1, func(_tup._2), _tup._3)
+    def map3[A](func: T3 => A): Tuple3[T1, T2, A] = (_tup._1, _tup._2, func(_tup._3))
+    def toSeq(
+      implicit ev: T1 =:= T2,
+      ev2: T2 =:= T3
+    ): Seq[T1] = Seq(_tup._1, _tup._2.asInstanceOf[T1], _tup._3.asInstanceOf[T1])
+  }
+
+  class MyTuple4[T1, T2, T3, T4](val _tup: Tuple4[T1, T2, T3, T4]) extends AnyVal {
+    def map1[A](func: T1 => A): Tuple4[A, T2, T3, T4] = (func(_tup._1), _tup._2, _tup._3, _tup._4)
+    def map2[A](func: T2 => A): Tuple4[T1, A, T3, T4] = (_tup._1, func(_tup._2), _tup._3, _tup._4)
+    def map3[A](func: T3 => A): Tuple4[T1, T2, A, T4] = (_tup._1, _tup._2, func(_tup._3), _tup._4)
+    def map4[A](func: T4 => A): Tuple4[T1, T2, T3, A] = (_tup._1, _tup._2, _tup._3, func(_tup._4))
+    def toSeq(
+      implicit ev: T1 =:= T2,
+      ev2: T2 =:= T3,
+      ev3: T3 =:= T4
+    ): Seq[T1] = Seq(_tup._1, _tup._2.asInstanceOf[T1], _tup._3.asInstanceOf[T1], _tup._4.asInstanceOf[T1])
   }
 
   class Stabilizer[A <: Ordered[A]] {

@@ -7,8 +7,7 @@ import library._
 
 object Main {
   def main(args: Array[String]) {
-    val specification = scala.io.Source.fromFile("examples/foo.blex").mkString
-    val parseTree = BoolexParser.parse(specification)
+    val parseTree = BoolexParser.parse(CircuitDemo.specification)
     val checkedParseTree = parseTree.right.flatMap(module => {
       BoolexTypeChecker.check(module) match {
         case (warnings, Nil) => Right((warnings, module))
@@ -24,18 +23,11 @@ object Main {
         println(sockets.map(s => "(" + s._1 + ": " + s._2 + ")").mkString("{ ", ", ", " }"))
       })
       runner.start(inputSockets, Some(builder.trueSocket), Some(builder.falseSocket))
-      debug3("Setting d to true")
-      runner.update(inputSockets(0), true)
-      Thread.sleep(1000)
-      debug3("Setting clk to true")
-      runner.update(inputSockets(1), true)
-      Thread.sleep(1000)
-      debug3("Setting d to false")
-      runner.update(inputSockets(0), false)
-      Thread.sleep(1000)
-      debug3("Setting clk to false")
-      runner.update(inputSockets(1), false)
-      Thread.sleep(1000)
+      CircuitDemo.testInputs.foreach(input => {
+        debug3("Simulating: " + input)
+        input.zipWithIndex.map({ case (value, index) => runner.update(inputSockets(index), value) })
+        Thread.sleep(2000)
+      })
       runner.stop
     }})
   } 
