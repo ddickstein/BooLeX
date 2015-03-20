@@ -9,19 +9,6 @@ circuit DLatch(d,clk)
   out RSLatch(d' and clk, d and clk)
 end
 
-circuit original_main(d,clk)
+circuit main(d,clk)
   out DLatch(d,clk)
-end
-
-
-circuit no_call_main(d, clk)
-  r = not d and clk
-  s = d and clk
-  p = r nor q
-  q = s nor p
-  out p, q
-end
-
-circuit main(a)
-  out a
 end
