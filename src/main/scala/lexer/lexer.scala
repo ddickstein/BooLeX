@@ -7,7 +7,7 @@ import scala.util.parsing.input.Reader
 
 final class BoolexLexer extends StdLexical {
   reserved ++= Set("circuit", "out", "end", "true", "false", "and", "or", "not", "nand", "nor", "xor", "xnor")
-  delimiters ++= Set("(", ")", "=", ",", "+", "-", "*", "^", "\'")
+  delimiters ++= Set("(", ")", "=", ",", "+", "-", "*", "^", "\'", "`")
 
   def debug(input: String): List[Token] = {
     val lst = ListBuffer.empty[Token]

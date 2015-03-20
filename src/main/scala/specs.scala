@@ -3,7 +3,7 @@ object CircuitDemo {
 
 circuit main(a)
   b = a and d
-  c = b or e
+  c = b or `e
   d = c or e
   e = not a
   out c

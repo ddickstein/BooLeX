@@ -109,6 +109,15 @@ object BoolexParser {
     )
 
     lazy val l5expression: PackratParser[ExpressionContext] = positioned(
+      ( ("`" ~l5expression)
+      | l6expression
+    ) ^^ {
+        case "`"~(exp: EC) => BufferExpression(exp)
+        case (exp: EC) => exp
+      }
+    )
+
+    lazy val l6expression: PackratParser[ExpressionContext] = positioned(
       ( "(" ~> l1expression <~ ")"
       | "true"
       | "false"

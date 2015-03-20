@@ -17,6 +17,7 @@ class CircuitBuilder extends IRTreeBuilder[Circuit] {
   def newNode(socketIdOpt: Option[String]): Circuit = new Circuit(socketIdOpt)
   def newConstNode(value: Boolean): Circuit = new Circuit(constantSockets(value))
   
+  def buffer(circuit: Circuit): Circuit = connectToGate(Buffer, circuit)
   def not(circuit: Circuit): Circuit = connectToGate(NotGate, circuit)
   def and(circuit1: Circuit, circuit2: Circuit): Circuit = connectToGate(AndGate, circuit1, circuit2)
   def or(circuit1: Circuit, circuit2: Circuit): Circuit = connectToGate(OrGate, circuit1, circuit2)
@@ -49,6 +50,7 @@ class CircuitBuilder extends IRTreeBuilder[Circuit] {
   private def connectToGate(gate: Gate, circuits: Circuit*): Circuit = {
     val destination = new Socket()
     gate match {
+      case Buffer => Buffer(circuits(0).outputs(0), destination)
       case NotGate => NotGate(circuits(0).outputs(0), destination)
       case AndGate => AndGate(circuits(0).outputs(0), circuits(1).outputs(0), destination)
       case OrGate => OrGate(circuits(0).outputs(0), circuits(1).outputs(0), destination)

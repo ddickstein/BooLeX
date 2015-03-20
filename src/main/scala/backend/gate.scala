@@ -2,6 +2,20 @@ package backend
 
 sealed trait Gate
 
+case object Buffer extends Gate {
+  def apply(input: Socket, output: Socket) {
+    new BufferImpl(input: Socket, output: Socket)
+  }
+
+  private class BufferImpl(input: Socket, output: Socket) extends SignalReceiver {
+    input.addTarget(this)
+    def receive(signal: Signal, sender: SignalSender) {
+      sender.fire(new Signal(output, input.value, 1))
+    }
+    override def toString: String = "BUFFER[" + input + "] => " + output
+  }
+}
+
 case object NotGate extends Gate {
   def apply(input: Socket, output: Socket) {
     new NotGateImpl(input: Socket, output: Socket)

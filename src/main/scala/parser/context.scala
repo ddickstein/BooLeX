@@ -16,6 +16,7 @@ package contexts {
   final case class ModuleContext(circuits: Seq[CircuitDeclarationContext]) extends Context
   final case class OutStatementContext(outputs: Seq[ExpressionContext]) extends Context
   final case class NotExpression(exp: ExpressionContext) extends ExpressionContext
+  final case class BufferExpression(exp: ExpressionContext) extends ExpressionContext
   final case class AndExpression(exp1: ExpressionContext, exp2: ExpressionContext) extends ExpressionContext
   final case class NandExpression(exp1: ExpressionContext, exp2: ExpressionContext) extends ExpressionContext
   final case class XorExpression(exp1: ExpressionContext, exp2: ExpressionContext) extends ExpressionContext

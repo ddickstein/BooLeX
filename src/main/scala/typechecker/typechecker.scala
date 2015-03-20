@@ -143,6 +143,7 @@ object BoolexTypeChecker {
     }
 
     def checkExpression(expression: ExpressionContext): Seq[CompileTimeError] = expression match {
+      case BufferExpression(exp) => checkExpression(exp)
       case NotExpression(exp) => checkExpression(exp)
       case AndExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
       case NandExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
@@ -190,6 +191,7 @@ object BoolexTypeChecker {
     }
 
     def getVariablesInExpression(exp: ExpressionContext): Seq[String] = exp match {
+      case BufferExpression(exp) => getVariablesInExpression(exp)
       case NotExpression(exp) => getVariablesInExpression(exp)
       case AndExpression(exp1, exp2) => getVariablesInExpression(exp1) ++: getVariablesInExpression(exp2)
       case NandExpression(exp1, exp2) => getVariablesInExpression(exp1) ++: getVariablesInExpression(exp2)
@@ -206,6 +208,7 @@ object BoolexTypeChecker {
       def _getCircuitDependencies(context: Context): Set[String] = context match {
         case AssignmentContext(_, values) => values.map(_getCircuitDependencies).flatten.toSet
         case OutStatementContext(outputs) => outputs.map(_getCircuitDependencies).flatten.toSet
+        case BufferExpression(exp) => _getCircuitDependencies(exp)
         case NotExpression(exp) => _getCircuitDependencies(exp)
         case AndExpression(exp1, exp2) => _getCircuitDependencies(exp1) ++ _getCircuitDependencies(exp2)
         case NandExpression(exp1, exp2) => _getCircuitDependencies(exp1) ++ _getCircuitDependencies(exp2)

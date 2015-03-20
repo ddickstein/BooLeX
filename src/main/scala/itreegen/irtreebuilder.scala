@@ -4,6 +4,7 @@ trait IRTreeBuilder[T] {
   def newNode(nameOpt: Option[String]): T
   def newConstNode(value: Boolean): T
 
+  def buffer(t1: T): T
   def not(t1: T): T
   def and(t1: T, t2: T): T
   def or(t1: T, t2: T): T

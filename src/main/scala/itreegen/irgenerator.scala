@@ -31,6 +31,7 @@ object BoolexIRGenerator {
     }
 
     def generateExpression(expression: ExpressionContext): T = expression match {
+      case BufferExpression(exp) => builder.buffer(generateExpression(exp))
       case NotExpression(exp) => builder.not(generateExpression(exp))
       case AndExpression(exp1, exp2) => builder.and(generateExpression(exp1), generateExpression(exp2))
       case NandExpression(exp1, exp2) => builder.nand(generateExpression(exp1), generateExpression(exp2))
