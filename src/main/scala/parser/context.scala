@@ -3,8 +3,8 @@ package parser
 import scala.util.parsing.input.Positional
 
 package contexts {
-  sealed abstract class Context extends Positional
-  sealed abstract class ExpressionContext extends Context
+  sealed trait Context extends Positional
+  sealed trait ExpressionContext extends Context
   final case class Symbol(name: String) extends Context
   final case class Number(number: String) extends Context
   final case class AssignmentContext(variables: Seq[Symbol], values: Seq[ExpressionContext]) extends Context
