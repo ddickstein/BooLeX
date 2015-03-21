@@ -32,12 +32,6 @@ class CircuitRunner(delayTime: Int, callback: Seq[(String, Boolean)] => Unit) {
   })
 
   private val launcher = new Thread(new Runnable {
-    private val signalSender = new SignalSender {
-      def fire(signal: Signal) {
-        signalQueue.add(signal)
-      }
-    }
-
     def run {
       while (!Thread.interrupted) {
         if (!initialized && signalQueue.isEmpty) {
@@ -51,7 +45,7 @@ class CircuitRunner(delayTime: Int, callback: Seq[(String, Boolean)] => Unit) {
         val receivers = scala.collection.mutable.SortedSet.empty[(String, Boolean)]
         while (!signalQueue.isEmpty && signalQueue.first.delay == 0) {
           val signal = signalQueue.pollFirst
-          signal.fire(signalSender)
+          signal.fire(signal => signalQueue.add(signal))
           if (signal.target.isInstanceOf[Socket]) {
             signal.target.asInstanceOf[Socket].idOpt.foreach(name => receivers += (name -> signal.value))
           }
