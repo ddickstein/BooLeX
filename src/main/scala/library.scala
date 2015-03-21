@@ -12,7 +12,7 @@ package library {
     def applyIf[B >: A](pred: => Boolean)(func: A => B): B = if (pred) func(_value) else _value
     def applyIf[B >: A](cond: A => Boolean)(func: A => B): B = if (cond(_value)) func(_value) else _value
 
-    def optionally[B](block: => B)(implicit ev: A =:= Boolean): Option[B] = if (_value) Some(block) else None
+    def optionally[B](block: => B)(implicit ev: A =:= Boolean): Option[B] = if (_value) Option(block) else None
   }
 
   class MySeq[A](val _seq: Seq[A]) extends AnyVal {
@@ -132,10 +132,30 @@ package object library {
     override def get: T = func
   }
 
-  val debugging1 = false
-  val debugging2 = false
+  val debugging1 = true
+  val debugging2 = true
   val debugging3 = true
   def debug(msg: String): Unit = if (debugging1) { println(Console.YELLOW + msg + Console.RESET) }
   def debug2(msg: String): Unit = if (debugging2) { println(Console.MAGENTA + msg + Console.RESET) }
   def debug3(msg: String): Unit = if (debugging3) { println(Console.CYAN + msg + Console.RESET) }
+
+  def waitFor(cond: => Boolean, monitor: AnyRef) {
+    monitor.synchronized {
+      try {
+        while (!cond) {
+          monitor.wait
+        }
+      } catch {
+        case e: InterruptedException => Thread.currentThread.interrupt // restore interrupted signal  
+      }
+    }
+  }
+
+  def safeSleep(milliseconds: Long) {
+    try {
+      Thread.sleep(milliseconds)
+    } catch {
+      case e: InterruptedException => Thread.currentThread.interrupt // restore interrupted signal
+    } 
+  }
 }

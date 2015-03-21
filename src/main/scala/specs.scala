@@ -1,18 +1,30 @@
 object CircuitDemo {
   val specification = """
 
-circuit main(a)
-  b = a and d
-  c = b or `e
-  d = c or e
-  e = not a
-  out c
+# This RS latch is properly handled.
+circuit RSLatch(r,s)
+  P = r nor Q
+  Q = s nor P
+  out P, Q
+end
+
+circuit DLatch(d,clk)
+  out RSLatch(d' and clk, d and clk)
+end
+
+circuit main(d,clk)
+  X, Y = DLatch(d,clk)
+  out X
 end
 
 
 """
   
   val testInputs = List(
-    List(true), List(false), List(true)
+    List(false, false),
+    List(true, false),
+    List(true, true),
+    List(true, false),
+    List(false, false)
   )
 }

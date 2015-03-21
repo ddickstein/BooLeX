@@ -8,9 +8,10 @@ class Socket(var idOpt: Option[String] = None, private var _value: Boolean = fal
   def targets: Set[SignalReceiver] = _targets.toSet
   def addTarget(target: SignalReceiver): Unit = _targets += target
   def receive(signal: Signal, sender: SignalSender) {
-    debug2(this + " received a " + signal.value + " signal")
-    _value = signal.value
-    debug2("propagating " + signal.value + " to: " + targets.mkString(", "))
+    if (value != signal.value) {
+      _value = signal.value
+      debug2("Set " + this)
+    }
     targets.foreach(target => sender.fire(new Signal(target, value, 0)))
   }
   override def toString: String = "(" + idOpt.getOrElse("?") + ": " + value + ")"

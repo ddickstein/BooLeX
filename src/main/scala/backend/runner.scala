@@ -8,34 +8,20 @@ import scala.collection.JavaConverters._
 import library._
 
 class CircuitRunner(delayTime: Int, callback: Seq[(String, Boolean)] => Unit) {
-  private val stabilizer = new Stabilizer[Signal]
-  private val waitingDock = new ConcurrentLinkedQueue[Signal] // waiting for the loading dock to clear
   private val loadingDock = new ConcurrentLinkedQueue[Signal] // loaded into the signal queue for firing
-  private val signalQueue = new ConcurrentSkipListSet[stabilizer.entry] // stable priority queue
+  private val stabilizer = new Stabilizer[Signal] // stabilize entries in the priority queue
+  private val signalQueue = new ConcurrentSkipListSet[stabilizer.entry] // stabilized priority queue
+  private var initialized = false
   private var finished = false
 
   private val loader = new Thread(new Runnable {
     def run {
+      waitFor(initialized, CircuitRunner.this)
+      debug("Starting to load")
       while (!Thread.interrupted) {
-        CircuitRunner.this.synchronized {
-          try {
-            while (waitingDock.isEmpty && loadingDock.isEmpty) {
-              CircuitRunner.this.wait
-            }
-          } catch {
-            case e: InterruptedException => Thread.currentThread.interrupt // restore interrupted signal
-          }
-        }
-        if (loadingDock.isEmpty) {
-          var transferCapacity = 100
-          while (!Thread.currentThread.isInterrupted && transferCapacity > 0 && !waitingDock.isEmpty) {
-            Option(waitingDock.poll).foreach(loadingDock.add)
-            transferCapacity -= 1
-          }
-        }
-        Option(loadingDock.poll).foreach(signal => {
+        waitFor(!loadingDock.isEmpty, loadingDock)
+        (!Thread.currentThread.isInterrupted).optionally(loadingDock.poll).foreach(signal => {
           signalQueue.synchronized {
-            debug("Loading " + signal)
             signalQueue.add(signal)
             signalQueue.notifyAll
           }
@@ -48,51 +34,35 @@ class CircuitRunner(delayTime: Int, callback: Seq[(String, Boolean)] => Unit) {
   private val launcher = new Thread(new Runnable {
     private val signalSender = new SignalSender {
       def fire(signal: Signal) {
-        debug2("*** It's a propagation ***")
-        signalQueue.synchronized {
-          signalQueue.add(signal)
-          signalQueue.notifyAll
-        }
+        signalQueue.add(signal)
       }
     }
 
     def run {
       while (!Thread.interrupted) {
-        signalQueue.synchronized {
-          try {
-            while (signalQueue.isEmpty) {
-              signalQueue.wait
-            }
-          } catch {
-            case e: InterruptedException => Thread.currentThread.interrupt // restore interrupted signal
+        if (!initialized && signalQueue.isEmpty) {
+          CircuitRunner.this.synchronized {
+            debug("Finished initializing")
+            initialized = true
+            CircuitRunner.this.notifyAll
           }
         }
+        waitFor(!signalQueue.isEmpty, signalQueue)
         val receivers = scala.collection.mutable.SortedSet.empty[(String, Boolean)]
         while (!signalQueue.isEmpty && signalQueue.first.delay == 0) {
           val signal = signalQueue.pollFirst
-          debug("Firing " + signal)
           signal.fire(signalSender)
           if (signal.target.isInstanceOf[Socket]) {
             signal.target.asInstanceOf[Socket].idOpt.foreach(name => receivers += (name -> signal.value))
           }
         }
         signalQueue.forEach((signal: stabilizer.entry) => signal.decrement)
-        try {
-          Thread.sleep(delayTime)
-        } catch {
-          case e: InterruptedException => Thread.currentThread.interrupt // restore interrupted signal
-        } finally {
-          if (receivers.nonEmpty) {
-            callback(receivers.toList)
-          }
+        safeSleep(delayTime)
+        if (receivers.nonEmpty) {
+          callback(receivers.toList)
         }
       }
-      try {
-        loader.join
-      } catch {
-        case e: InterruptedException => e.printStackTrace
-      }
-      waitingDock.clear
+      loader.join
       loadingDock.clear
       signalQueue.clear
       debug("Launcher: All done!")
@@ -100,26 +70,25 @@ class CircuitRunner(delayTime: Int, callback: Seq[(String, Boolean)] => Unit) {
   })
 
   def start(inputSockets: Seq[Socket], trueSocketOpt: Option[Socket] = None, falseSocketOpt: Option[Socket] = None) {
-    loadingDock.addAll(inputSockets.map(socket => new Signal(socket, false, 0)).asJava) // initialize inputs to false
-    trueSocketOpt.foreach(socket => loadingDock.add(new Signal(socket, true, 0)))
-    falseSocketOpt.foreach(socket => loadingDock.add(new Signal(socket, false, 0)))
+    trueSocketOpt.foreach(socket => signalQueue.add(new Signal(socket, true, 0)))
+    falseSocketOpt.foreach(socket => signalQueue.add(new Signal(socket, false, 0)))
     loader.start
     launcher.start
   }
 
   def update(socket: Socket, value: Boolean) {
-    this.synchronized {
+    loadingDock.synchronized {
       if (!finished) {
         val signal = new Signal(socket, value, 1)
-        debug("Queueing " + signal)
-        waitingDock.add(signal)
-        this.notifyAll
+        loadingDock.add(signal)
+        loadingDock.notifyAll
       }
     }
   }
 
   def stop {
-    this.synchronized {
+    loadingDock.synchronized {
+      debug("Quitting")
       finished = true
       loader.interrupt
       launcher.interrupt

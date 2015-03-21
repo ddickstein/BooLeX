@@ -26,7 +26,7 @@ object Main {
       CircuitDemo.testInputs.foreach(input => {
         debug3("Simulating: " + input)
         input.zipWithIndex.map({ case (value, index) => runner.update(inputSockets(index), value) })
-        Thread.sleep(2000)
+        safeSleep(2000)
       })
       runner.stop
     }})
