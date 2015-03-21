@@ -6,7 +6,7 @@ import scala.util.parsing.input.CharArrayReader.EofCh
 import scala.util.parsing.input.Reader
 
 final class BoolexLexer extends StdLexical {
-  reserved ++= Set("circuit", "out", "end", "true", "false", "and", "or", "not", "nand", "nor", "xor", "xnor")
+  reserved ++= Set("circuit", "out", "end", "true", "false", "and", "or", "not", "nand", "nor", "xor", "xnor", "clock")
   delimiters ++= Set("(", ")", "=", ",", "+", "-", "*", "^", "\'", "`")
 
   def debug(input: String): List[Token] = {

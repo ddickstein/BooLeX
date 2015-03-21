@@ -11,6 +11,7 @@ class CircuitRunner(delayTime: Int, callback: Seq[(String, Boolean)] => Unit) {
   private val loadingDock = new ConcurrentLinkedQueue[Signal] // loaded into the signal queue for firing
   private val stabilizer = new Stabilizer[Signal] // stabilize entries in the priority queue
   private val signalQueue = new ConcurrentSkipListSet[stabilizer.entry] // stabilized priority queue
+  private val clocks = scala.collection.mutable.ListBuffer.empty[Thread]
   private var initialized = false
   private var finished = false
 
@@ -63,11 +64,27 @@ class CircuitRunner(delayTime: Int, callback: Seq[(String, Boolean)] => Unit) {
     }
   })
 
-  def start(inputSockets: Seq[Socket], trueSocketOpt: Option[Socket] = None, falseSocketOpt: Option[Socket] = None) {
+  def start(
+    inputSockets: Seq[Socket],
+    trueSocketOpt: Option[Socket] = None,
+    falseSocketOpt: Option[Socket] = None,
+    clocks: Seq[(Int, Socket)] = Nil
+  ) {
+    this.clocks ++= clocks.map({ case (milliseconds, socket) => new Thread(new Runnable {
+      var value = false
+      def run {
+        while (!Thread.interrupted) {
+          update(socket, value)
+          value = !value
+          safeSleep(milliseconds)
+        }
+      }
+    })})
     trueSocketOpt.foreach(socket => signalQueue.add(new Signal(socket, true, 0)))
     falseSocketOpt.foreach(socket => signalQueue.add(new Signal(socket, false, 0)))
     loader.start
     launcher.start
+    this.clocks.foreach(_.start)
   }
 
   def update(socket: Socket, value: Boolean) {
@@ -86,6 +103,7 @@ class CircuitRunner(delayTime: Int, callback: Seq[(String, Boolean)] => Unit) {
       finished = true
       loader.interrupt
       launcher.interrupt
+      clocks.foreach(_.interrupt)
     }
   }
 }

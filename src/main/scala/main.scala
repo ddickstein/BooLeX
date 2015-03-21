@@ -22,7 +22,7 @@ object Main {
       val runner = new CircuitRunner(100, sockets => {
         println(sockets.map(s => "(" + s._1 + ": " + s._2 + ")").mkString("{ ", ", ", " }"))
       })
-      runner.start(inputSockets, Some(builder.trueSocket), Some(builder.falseSocket))
+      runner.start(inputSockets, Some(builder.trueSocket), Some(builder.falseSocket), builder.clocks)
       CircuitDemo.testInputs.foreach(input => {
         debug3("Simulating: " + input)
         input.zipWithIndex.map({ case (value, index) => runner.update(inputSockets(index), value) })

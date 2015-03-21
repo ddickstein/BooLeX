@@ -18,6 +18,7 @@ object BoolexTypeChecker {
       val duplicateCircuitNameErrors = (for {
         circuit <- module.circuits
         name = circuit.name.name
+        if name != "_" // we ignore this circuit for now and deal with it later
         pos = circuit.name.pos
         inputs = circuit.paramsOpt.map(_.size).getOrElse(0)
       } yield {
@@ -55,9 +56,20 @@ object BoolexTypeChecker {
       val formals = declaration.paramsOpt.toList.flatten
       val assignments = declaration.assignments
       val output = declaration.output
+      val nameErrors = (if (circuitName == "_") {
+        List(TypeError("\'_\' is an invalid circuit name", Some(declaration.name.pos)))
+      } else {
+        Nil
+      }) ++: (for {
+        formal <- formals
+        if formal.name == "_"
+      } yield {
+        TypeError("\'_\' is an invalid name for a formal parameter", Some(formal.pos))
+      })
       scopes.startScope(circuitName)
       val duplicateParameterNamesErrors = for {
         formal <- formals
+        if formal.name != "_"
         if !scopes.addSymbol(formal.name, BooleanType)
       } yield {
         MiscError("Duplicate identifier: \'" + formal.name + "\'", Some(formal.pos))
@@ -70,7 +82,7 @@ object BoolexTypeChecker {
         MiscError("Unfulfilled promise: \'" + variable + "\'", Some(pos))
       }
       scopes.endScope
-      val allErrors = duplicateParameterNamesErrors ++: assignmentErrors ++: promiseErrors ++: outputErrors
+      val allErrors = nameErrors ++: duplicateParameterNamesErrors ++: assignmentErrors ++: promiseErrors ++: outputErrors
       val warnings = if (allErrors.isEmpty) {
         val outputDependencyGraph = {
           val inputDependencies = List("%input%" -> Set.empty[String])
@@ -79,13 +91,14 @@ object BoolexTypeChecker {
             assignment <- assignments
             dependencies = assignment.values.flatMap(getVariablesInExpression).toSet
             variable <- assignment.variables.map(_.name)
+            if variable != "_"
           } yield {
             variable -> dependencies
           }
           val outputDependencies = List(("%output%" -> output.outputs.flatMap(getVariablesInExpression).toSet))
           (inputDependencies ++: formalDependencies ++: localDependencies ++: outputDependencies).toMap
         }
-        val allVariablesByName = (formals ++: assignments.flatMap(_.variables)).mapBy(_.name)
+        val allVariablesByName = (formals ++: assignments.flatMap(_.variables).filter(_.name != "_")).mapBy(_.name)
         val inputDependencyGraph = outputDependencyGraph.invert
         val variablesAffectedByInput = findAllDependencies(inputDependencyGraph, "%input%")
         val variablesAffectingOutput = findAllDependencies(outputDependencyGraph, "%output%")
@@ -122,9 +135,9 @@ object BoolexTypeChecker {
       }).toList
       val duplicateIdentifierErrors = (for {
         variable <- variables
+        if variable.name != "_" // duplicate _'s allowed
       } yield {
-        val temp = scopes.fillPromise(variable.name)
-        (!temp)
+        (!scopes.fillPromise(variable.name))
           .optionally(MiscError("Duplicate identifier: \'" + variable.name + "\'", Some(variable.pos)))
       }).flatten
       val expressionErrors = (for {
@@ -138,7 +151,9 @@ object BoolexTypeChecker {
     def checkOutStatement(outStatement: OutStatementContext): Seq[CompileTimeError] = {
       val currentCircuit = scopes.getOwner
       val outputs = outStatement.outputs
-      scopes.completeCircuit(currentCircuit, outputs.map(countExpressionOutputs).sum)
+      if (currentCircuit != "_") {
+        scopes.completeCircuit(currentCircuit, outputs.map(countExpressionOutputs).sum)
+      }
       return outputs.flatMap(checkExpression)
     }
 
@@ -152,17 +167,29 @@ object BoolexTypeChecker {
       case OrExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
       case NorExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
       case BooleanValue(value) => Nil
-      case Variable(name) => (for {
-        variableType <- scopes.getSymbolType(name)
-        if variableType != BooleanType
-        if !variableType.isInstanceOf[BooleanPromiseType]
-      } yield {
-        TypeError("Expected true/false value for \'" + name + "\'", Some(expression.pos))
-      }).orElse({
-        scopes.addSymbol(name, BooleanPromiseType(expression.pos))
-        None
+      case Variable(name) => if (name == "_") {
+        List(TypeError("\'_\' is an invalid expression", Some(expression.pos)))
+      } else {
+        (for {
+          variableType <- scopes.getSymbolType(name)
+          if variableType != BooleanType
+          if !variableType.isInstanceOf[BooleanPromiseType]
+        } yield {
+          TypeError("Expected true/false value, but \'" + name + "\' is a circuit", Some(expression.pos))
+        }).orElse({
+          scopes.addSymbol(name, BooleanPromiseType(expression.pos))
+          None
+        }).toList
+      }
+      case Clock(milliseconds) => (try {
+        (milliseconds.number.toInt <= 100).optionally(
+          MiscError("Clock period must be greater than 100ms", Some(milliseconds.pos))
+        )
+      } catch {
+        case e: NumberFormatException => Some(MiscError(milliseconds.number +
+          "ms is an unreasonable amount of time to wait", Some(milliseconds.pos)))
       }).toList
-      case CircuitCallContext(name: Symbol, arguments: Seq[ExpressionContext]) => {
+      case CircuitCallContext(name, arguments) => {
         val typeOpt = scopes.getSymbolType(name.name)
         val typeErrors = if (typeOpt.exists(_.isInstanceOf[CircuitType])) {
           val numFormalParameters = typeOpt.map(_.asInstanceOf[CircuitType].inputs).getOrElse(0)
@@ -172,7 +199,7 @@ object BoolexTypeChecker {
               name.name + " but " + numActualParameters + " arguments were found", Some(name.pos))
           }).toList
         } else {
-          List(TypeError("\'" + name.name + "\' is not a circuit.", Some(name.pos)))
+          List(TypeError("\'" + name.name + "\' is not a circuit", Some(name.pos)))
         }
         val argumentErrors = (for {
           argument <- arguments
@@ -201,6 +228,7 @@ object BoolexTypeChecker {
       case NorExpression(exp1, exp2) => getVariablesInExpression(exp1) ++: getVariablesInExpression(exp2)
       case BooleanValue(value) => Nil
       case Variable(name) => List(name)
+      case Clock(milliseconds) => List("%input%")
       case CircuitCallContext(_, arguments) => arguments.flatMap(getVariablesInExpression)
     }
 

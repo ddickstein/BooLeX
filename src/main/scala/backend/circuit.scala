@@ -10,13 +10,21 @@ case class Circuit(val inputs: Seq[Socket], val outputs: Seq[Socket]) {
 
 class CircuitBuilder extends IRTreeBuilder[Circuit] {
   private val constantSockets = Map(true -> new ConstantSocket(true), false -> new ConstantSocket(false))
+  private val _clocks = scala.collection.mutable.ListBuffer.empty[(Int, Socket)]
 
   def trueSocket: Socket = constantSockets(true)
   def falseSocket: Socket = constantSockets(false)
+  def clocks: Seq[(Int, Socket)] = _clocks.toList
 
   def newNode(socketIdOpt: Option[String]): Circuit = new Circuit(socketIdOpt)
   def newConstNode(value: Boolean): Circuit = new Circuit(constantSockets(value))
   
+  def clock(milliseconds: Int): Circuit = {
+    val socket = new Socket
+    _clocks += (milliseconds -> socket)
+    return new Circuit(socket)
+  }
+
   def buffer(circuit: Circuit): Circuit = connectToGate(Buffer, circuit)
   def not(circuit: Circuit): Circuit = connectToGate(NotGate, circuit)
   def and(circuit1: Circuit, circuit2: Circuit): Circuit = connectToGate(AndGate, circuit1, circuit2)

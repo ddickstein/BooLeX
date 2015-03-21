@@ -133,7 +133,7 @@ package object library {
   }
 
   val debugging1 = true
-  val debugging2 = true
+  val debugging2 = false
   val debugging3 = true
   def debug(msg: String): Unit = if (debugging1) { println(Console.YELLOW + msg + Console.RESET) }
   def debug2(msg: String): Unit = if (debugging2) { println(Console.MAGENTA + msg + Console.RESET) }

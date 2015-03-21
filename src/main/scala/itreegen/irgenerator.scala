@@ -41,6 +41,7 @@ object BoolexIRGenerator {
       case NorExpression(exp1, exp2) => builder.nor(generateExpression(exp1), generateExpression(exp2))
       case BooleanValue(value) => builder.newConstNode(value)
       case Variable(name) => getOrCreateInScope(name)
+      case Clock(milliseconds) => builder.clock(milliseconds.number.toInt)
       case CircuitCallContext(name, arguments) => {
         val wasInTopLevel = inTopLevel
         inTopLevel = false
@@ -52,10 +53,14 @@ object BoolexIRGenerator {
     }
 
     def getOrCreateInScope(name: String): T = {
-      if (!scopes.head.contains(name)) {
-        scopes.head += (name -> builder.newNode(inTopLevel.optionally(name)))
+      if (name == "_") {
+        return builder.newNode(None)
+      } else {
+        if (!scopes.head.contains(name)) {
+          scopes.head += (name -> builder.newNode(inTopLevel.optionally(name)))
+        }
+        return scopes.head(name);
       }
-      return scopes.head(name);
     }
   }
 }

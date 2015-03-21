@@ -122,6 +122,7 @@ object BoolexParser {
       | "true"
       | "false"
       | symbol <~ not("(")
+      | clock
       | circuitCall
     ) ^^ {
         case "true" => BooleanValue(true)
@@ -131,6 +132,10 @@ object BoolexParser {
       }
     )
 
+    lazy val clock: PackratParser[Clock] = positioned("clock" ~> "(" ~> number <~ ")" ^^ Clock)
+
+    lazy val number: PackratParser[Number] = positioned(numericLit ^^ Number)
+    
     lazy val symbol: PackratParser[Symbol] = positioned(ident ^^ Symbol)
   }
 }
