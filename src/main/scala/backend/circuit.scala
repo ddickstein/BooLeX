@@ -49,8 +49,12 @@ class CircuitBuilder extends IRTreeBuilder[Circuit] {
   
   def blackBox(input: Circuit, output: Circuit, inTopLevel: Boolean): Circuit = {
     if (inTopLevel) {
-      val namesIterator = Iterator.from(1)
-      output.outputs.filter(_.idOpt.isEmpty).foreach(_.idOpt = Some("%o" + namesIterator.next))
+      for {
+        (socket, index) <- output.outputs.zipWithIndex
+        if socket.idOpt.isEmpty
+      } {
+        socket.idOpt = Some("%o" + (index+1))
+      }
     }
     return Circuit(input.inputs, output.outputs)
   }
