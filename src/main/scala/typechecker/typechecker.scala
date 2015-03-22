@@ -175,7 +175,7 @@ object BoolexTypeChecker {
           if variableType != BooleanType
           if !variableType.isInstanceOf[BooleanPromiseType]
         } yield {
-          TypeError("Expected true/false value, but \'" + name + "\' is a circuit", Some(expression.pos))
+          TypeError("\'" + name + "\' is not a true/false value", Some(expression.pos))
         }).orElse({
           scopes.addSymbol(name, BooleanPromiseType(expression.pos))
           None

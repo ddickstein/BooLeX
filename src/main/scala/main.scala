@@ -1,6 +1,6 @@
 import backend.{CircuitBuilder, CircuitRunner}
 import itreegen.BoolexIRGenerator
-import parser.BoolexParser
+import parser.{BoolexParseTreeRewriter, BoolexParser}
 import typechecker.BoolexTypeChecker
 
 import library._
@@ -8,7 +8,8 @@ import library._
 object Main {
   def main(args: Array[String]) {
     val parseTree = BoolexParser.parse(CircuitDemo.specification)
-    val checkedParseTree = parseTree.right.flatMap(module => {
+    val rewrittenParseTree = parseTree.right.map(BoolexParseTreeRewriter.rewrite)
+    val checkedParseTree = rewrittenParseTree.right.flatMap(module => {
       BoolexTypeChecker.check(module) match {
         case (warnings, Nil) => Right((warnings, module))
         case (warnings, errors) => Left(errors ++: warnings)

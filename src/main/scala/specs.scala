@@ -11,9 +11,13 @@ circuit DLatch(d,clk)
 end
 
 circuit main(d)
-  clk = clock(500)
+  clk = foobar
   X, _ = DLatch(d,clk)
   out X
+end
+
+circuit foobar
+  out clock(500)
 end
 """
 
