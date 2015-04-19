@@ -10,7 +10,11 @@ case class ArchitectureContext(
   components: Seq[EntityContext],
   signals: Seq[String],
   portMaps: Seq[Map[Entity, Seq[Signal]]],
-  assignments: Map[String, ExpressionContext])
+  assignments: Map[String, ExpressionContext]
+)
+case class PortContext(inputs: Seq[String], outputs: Seq[String])
+sealed trait ExpressionContext
+
 
 class VhdlContextBuilder extends IRTreeBuilder[VhdlContext] {
   private val iter = Iterator.from(0)
