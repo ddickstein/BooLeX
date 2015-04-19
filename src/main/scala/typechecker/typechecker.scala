@@ -25,8 +25,7 @@ object BoolexTypeChecker {
         (!scopes.addSymbol(name, PartialCircuitType(inputs)))
           .optionally(MiscError("Duplicate identifier: \'" + name + "\'", Some(pos)))
       }).flatten
-      val noMainError = (!scopes.containsSymbol("main"))
-        .optionally(MiscError("Could not find \'main\' circuit")).toList
+      val noMainError = (!scopes.containsSymbol("main")).optionalList(MiscError("Could not find \'main\' circuit"))
       if (duplicateCircuitNameErrors.size + noMainError.size > 0) {
         return noMainError ++: duplicateCircuitNameErrors
       } else {
@@ -158,14 +157,14 @@ object BoolexTypeChecker {
     }
 
     def checkExpression(expression: ExpressionContext): Seq[CompileTimeError] = expression match {
-      case BufferExpression(exp) => checkExpression(exp)
-      case NotExpression(exp) => checkExpression(exp)
-      case AndExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
-      case NandExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
-      case XorExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
-      case XnorExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
-      case OrExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
-      case NorExpression(exp1, exp2) => checkExpression(exp1) ++: checkExpression(exp2)
+      case BufferExpression(exp) => checkUnaryExpression(exp)
+      case NotExpression(exp) => checkUnaryExpression(exp)
+      case AndExpression(exp1, exp2) => checkUnaryExpression(exp1) ++: checkUnaryExpression(exp2)
+      case NandExpression(exp1, exp2) => checkUnaryExpression(exp1) ++: checkUnaryExpression(exp2)
+      case XorExpression(exp1, exp2) => checkUnaryExpression(exp1) ++: checkUnaryExpression(exp2)
+      case XnorExpression(exp1, exp2) => checkUnaryExpression(exp1) ++: checkUnaryExpression(exp2)
+      case OrExpression(exp1, exp2) => checkUnaryExpression(exp1) ++: checkUnaryExpression(exp2)
+      case NorExpression(exp1, exp2) => checkUnaryExpression(exp1) ++: checkUnaryExpression(exp2)
       case BooleanValue(value) => Nil
       case Variable(name) => if (name == "_") {
         List(TypeError("\'_\' is an invalid expression", Some(expression.pos)))
@@ -194,10 +193,10 @@ object BoolexTypeChecker {
         val typeErrors = if (typeOpt.exists(_.isInstanceOf[CircuitType])) {
           val numFormalParameters = typeOpt.map(_.asInstanceOf[CircuitType].inputs).getOrElse(0)
           val numActualParameters = arguments.map(countExpressionOutputs).sum
-          (numActualParameters != numFormalParameters).optionally({
+          (numActualParameters != numFormalParameters).optionalList({
             TypeError("Expected " + numFormalParameters + " parameters for " +
               name.name + " but " + numActualParameters + " arguments were found", Some(name.pos))
-          }).toList
+          })
         } else {
           List(TypeError("\'" + name.name + "\' is not a circuit", Some(name.pos)))
         }
@@ -208,6 +207,13 @@ object BoolexTypeChecker {
         }).flatten
         return typeErrors ++: argumentErrors
       }
+    }
+
+    def checkUnaryExpression(expression: ExpressionContext): Seq[CompileTimeError] = {
+      val outputs = countExpressionOutputs(expression)
+      return (outputs > 1).optionalList({
+        TypeError("Expected expression with 1 output but found expression with " + outputs, Some(expression.pos))
+      }) ++: checkExpression(expression)
     }
 
     def countExpressionOutputs(exp: ExpressionContext): Int = exp match {

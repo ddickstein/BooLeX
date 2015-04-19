@@ -13,6 +13,7 @@ package library {
     def applyIf[B >: A](cond: A => Boolean)(func: A => B): B = if (cond(_value)) func(_value) else _value
 
     def optionally[B](block: => B)(implicit ev: A =:= Boolean): Option[B] = if (_value) Option(block) else None
+    def optionalList[B](block: => B)(implicit ev: A =:= Boolean): List[B] = if (_value) List(block) else Nil
   }
 
   class MySeq[A](val _seq: Seq[A]) extends AnyVal {
