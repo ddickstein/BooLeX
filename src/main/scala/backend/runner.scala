@@ -76,7 +76,7 @@ class CircuitRunner(delayTime: Int, callback: Seq[(String, Boolean)] => Unit) {
         while (!Thread.interrupted) {
           update(socket, value)
           value = !value
-          safeSleep(milliseconds)
+          safeSleep(milliseconds / 2) // milliseconds variable represents total period: 1/2 period OFF, 1/2 period ON
         }
       }
     })})

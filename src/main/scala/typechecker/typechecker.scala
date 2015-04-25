@@ -180,14 +180,13 @@ object BoolexTypeChecker {
           None
         }).toList
       }
-      case Clock(milliseconds) => (try {
-        (milliseconds.number.toInt <= 100).optionally(
-          MiscError("Clock period must be greater than 100ms", Some(milliseconds.pos))
-        )
-      } catch {
-        case e: NumberFormatException => Some(MiscError(milliseconds.number +
-          "ms is an unreasonable amount of time to wait", Some(milliseconds.pos)))
-      }).toList
+      case Clock(milliseconds) => if (milliseconds.number.toInt < 100) {
+        List(MiscError("Clock period must be greater than 100ms", Some(milliseconds.pos)))
+      } else if (milliseconds.number.toInt > 1000000) {
+        List(MiscError("Clock period must be less than 5,000,000ms", Some(milliseconds.pos)))
+      } else {
+        Nil
+      }
       case CircuitCallContext(name, arguments) => {
         val typeOpt = scopes.getSymbolType(name.name)
         val typeErrors = if (typeOpt.exists(_.isInstanceOf[CircuitType])) {
