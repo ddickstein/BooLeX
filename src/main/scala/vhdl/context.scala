@@ -15,15 +15,16 @@ case class ArchitectureContext(
 case class PortContext(inputs: Seq[String], outputs: Seq[String])
 sealed trait ExpressionContext
 
-
-class VhdlContextBuilder extends IRTreeBuilder[VhdlContext] {
+class VhdlContextBuilder(simulateTiming: Option[Int] = None) extends IRTreeBuilder[VhdlContext] {
   private val iter = Iterator.from(0)
   private def nextName = "signal" + iter.next
 
   def newNode(nameOpt: Option[String]): VhdlContext
   def newConstNode(value: Boolean): VhdlContext
 
-  def clock(ms: Int): VhdlContext
+  // TODO(dani): Add support for clocks.
+  def clock(ms: Int): VhdlContext = throw new UnsupportedOperationException("Support for clocks will be added later.")
+  
   def buffer(t1: VhdlContext): VhdlContext
   def not(t1: VhdlContext): VhdlContext
   def and(t1: VhdlContext, t2: VhdlContext): VhdlContext
