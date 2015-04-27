@@ -4,14 +4,12 @@ import scala.collection.mutable.SortedSet
 
 import library._
 
-class ClockDivider {
+object ClockDivider {
   private val PERIOD_APPROXIMATIONS = List(100, 200, 400, 500, 800, 1000, 2000, 4000, 5000, 8000, 10000, 20000, 40000,
     50000, 100000, 200000, 500000, 1000000)
 
-  private val clocks = SortedSet.empty[(Int, String)](Ordering.Tuple2(Ordering.Int.reverse, Ordering.String.reverse))
-
   def approximateClock(period: Int): (Int, String) = {
-    val approxPeriod = PERIOD_APPROXIMATIONS.map(approx => (Math.abs(ms - approx), approx)).min._2
+    val approxPeriod = PERIOD_APPROXIMATIONS.map(approx => (Math.abs(period - approx), approx)).min._2
     val approxFrequency = 1000000 / approxPeriod
     val approxClock = if (approxFrequency % 1000 == 0) {
       "clk_" + (approxFrequency / 1000) + "Hz"
@@ -20,8 +18,12 @@ class ClockDivider {
     }
     return (approxFrequency, approxClock)
   }
+}
 
-  def addClock(period: Int) = clocks += approximateClock(period)
+class ClockDivider {
+  private val clocks = SortedSet.empty[(Int, String)](Ordering.Tuple2(Ordering.Int.reverse, Ordering.String.reverse))
+
+  def addClock(period: Int) = clocks += ClockDivider.approximateClock(period)
 
   def toVhdlComponent: String = {
     val sb = new StringBuilder
@@ -52,7 +54,7 @@ class ClockDivider {
     sb ++= clocks.toList.map(_._2).mkString("    ", ", ", " : out std_logic\n")
     sb ++= "  );\n"
     sb ++= "end ClockDivider;\n\n"
-    sb ++= "architecture ClockDividerArchitecture of ClockDivider is\n"
+    sb ++= "architecture ClockDivider_Architecture of ClockDivider is\n"
     sb ++= "  signal clk_10Hz_signal : std_logic;\n"
     sb ++= "  signal clk_10Hz_counter : integer range 0 to 2499999 := 0;\n"
     for {
@@ -76,7 +78,7 @@ class ClockDivider {
     for((_, name) <- clocks.toList) {
       sb ++= "  " + name + " <= " + name + "_signal;\n"
     }
-    sb ++= "\nend ClockDividerArchitecture;\n\n"
+    sb ++= "\nend ClockDivider_Architecture;\n\n"
     return sb.toString
   }
 

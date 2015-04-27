@@ -16,8 +16,43 @@ package library {
     def optionalList[B](block: => B)(implicit ev: A =:= Boolean): List[B] = if (_value) List(block) else Nil
   }
 
+  class MyString(val str: String) extends AnyVal {
+    def decapitalize: String = if (str.nonEmpty && str.charAt(0).isLower) {
+      val chars = str.toCharArray
+      chars(0) = chars(0).toLower
+      new String(chars)
+    } else {
+      str
+    }
+
+    def toMixedCase: String = toCamelCase.decapitalize
+
+    def toCamelCase: String = (for {
+      word <- "_+".r.split(str)
+      if !word.isEmpty
+    } yield {
+      word.toLowerCase.capitalize
+    }).mkString("")
+  }
+
   class MySeq[A](val _seq: Seq[A]) extends AnyVal {
     def mapBy[B](func: A => B): Map[B, A] = _seq.map(x => (func(x), x)).toMap
+    def flatUnzip[T1, T2, CC1[T1], CC2[T2]](
+      implicit
+      ev1: Seq[A] <:< Seq[Tuple2[CC1[T1], CC2[T2]]],
+      ev2: CC1[T1] <:< TraversableOnce[T1],
+      ev3: CC2[T2] <:< TraversableOnce[T2],
+      cbf1: CanBuildFrom[CC1[T1], T1, CC1[T1]],
+      cbf2: CanBuildFrom[CC2[T2], T2, CC2[T2]]
+    ): (CC1[T1], CC2[T2]) = {
+      val list1 = cbf1()
+      val list2 = cbf2()
+      for ((xs, ys) <- _seq: Seq[Tuple2[CC1[T1], CC2[T2]]]) {
+        list1 ++= xs
+        list2 ++= ys
+      }
+      return (list1.result, list2.result)
+    }
   }
 
   class MyMap[A, B](val _map: Map[A, B]) extends AnyVal {
@@ -37,6 +72,30 @@ package library {
         inverted.get(value).foreach(_ += key)
       }
       return inverted.map({ case (k,v) => (k -> v.result) }).toMap
+    }
+
+    def sortTopologically(implicit ev: B =:= Set[A]): Seq[A] = {
+      val dependencyGraph = _map
+      val mutableGraph = scala.collection.mutable.Map() ++ (for {
+        (node, dependencies) <- dependencyGraph
+      } yield {
+        val realDependencies = dependencies & dependencyGraph.keys.toSet
+        (node -> scala.collection.mutable.Set(realDependencies.toSeq:_*))
+      })
+      val linearizedDependencies = scala.collection.mutable.ListBuffer.empty[A]
+      val independentNodes = scala.collection.mutable.Set.empty[A]
+      independentNodes ++= mutableGraph.filter({ case (_, deps) => deps.isEmpty }).keys
+      mutableGraph --= independentNodes
+      while (independentNodes.nonEmpty) {
+        val node = independentNodes.head
+        independentNodes -= node
+        linearizedDependencies += node
+        mutableGraph.values.foreach(_ -= node)
+        val newIndependentNodes = mutableGraph.filter({ case (_, deps) => deps.isEmpty }).keys
+        mutableGraph --= newIndependentNodes
+        independentNodes ++= newIndependentNodes
+      }
+      return linearizedDependencies.toList
     }
   }
 
@@ -100,10 +159,11 @@ package library {
 package object library {
   import java.util.function.{BiConsumer, BiFunction, BiPredicate, Consumer, Function, Predicate, Supplier}
   import scala.language.implicitConversions
-  implicit def seq2MySeq[A](_seq: Seq[A]) = new MySeq(_seq)
-  implicit def map2MyMap[A, B](_map: Map[A, B]) = new MyMap(_map)
-  implicit def tuple22MyTuple2[A, B](_tup: Tuple2[A, B]) = new MyTuple2(_tup)
-  implicit def value2Identity[A](_value: A) = new Identity(_value)
+  implicit def seq2MySeq[A](_seq: Seq[A]): MySeq[A] = new MySeq(_seq)
+  implicit def map2MyMap[A, B](_map: Map[A, B]): MyMap[A, B] = new MyMap(_map)
+  implicit def tuple22MyTuple2[A, B](_tup: Tuple2[A, B]): MyTuple2[A, B] = new MyTuple2(_tup)
+  implicit def value2Identity[A](_value: A): Identity[A] = new Identity(_value)
+  implicit def string2MyString(str: String): MyString = new MyString(str)
 
   implicit def scala2javaBiConsumer[T, U](func: (T, U) => Unit): BiConsumer[T, U] = new BiConsumer[T, U] {
     override def accept(x:T, y:U): Unit = func(x, y)

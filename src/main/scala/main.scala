@@ -9,14 +9,14 @@ object Main {
   def main(args: Array[String]) {
     val parseTree = BoolexParser.parse(CircuitDemo.specification)
     val rewrittenParseTree = parseTree.right.map(BoolexParseTreeRewriter.rewrite)
-    val checkedParseTree = rewrittenParseTree.right.flatMap(module => {
+    val checkedParseTreeAndMetaData = rewrittenParseTree.right.flatMap(module => {
       BoolexTypeChecker.check(module) match {
-        case (warnings, Nil) => Right((warnings, module))
-        case (warnings, errors) => Left(errors ++: warnings)
+        case ((warnings, Nil), Some(metaData)) => Right((warnings, (module, metaData)))
+        case ((warnings, errors), _) => Left(errors ++: warnings)
       }
     })
-    checkedParseTree.left.foreach(_.foreach(errors.printerr))
-    checkedParseTree.right.foreach({ case (warnings, module) => {
+    checkedParseTreeAndMetaData.left.foreach(_.foreach(errors.printerr))
+    checkedParseTreeAndMetaData.right.foreach({ case (warnings, (module, metaData)) => {
       warnings.foreach(errors.printerr)
       val builder = new CircuitBuilder()
       val inputSockets = BoolexIRGenerator.generate(builder)(module).inputs

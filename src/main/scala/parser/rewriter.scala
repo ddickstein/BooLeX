@@ -16,7 +16,6 @@ object BoolexParseTreeRewriter {
     return blxParseTreeRewriter.rewriteModule(module)
   }
 
-
   final private class BoolexParseTreeRewriterImpl(nonInputCircuits: Set[String]) {
     def rewriteModule(module: ModuleContext): ModuleContext = {
       val newModuleContext = ModuleContext(module.circuits.map(rewriteCircuit))

@@ -5,16 +5,19 @@ import library._
 
 object BoolexTypeChecker {
   import parser.contexts._
-  def check(module: ModuleContext): (Seq[CompileTimeError], Seq[CompileTimeError]) = {
+  def check(module: ModuleContext): (
+    (Seq[CompileTimeError], Seq[CompileTimeError]),
+    Option[CircuitMetadata]
+  ) = {
     val blxTypeChecker = new BoolexTypeCheckerImpl()
-    val errors = blxTypeChecker.checkModule(module)
-    return errors.partition(_.isInstanceOf[Warning])
+    val (errors, dependencyGraphOpt) = blxTypeChecker.checkModule(module)
+    return (errors.partition(_.isInstanceOf[Warning]), dependencyGraphOpt)
   }
 
   final private class BoolexTypeCheckerImpl {
     val scopes = new BoolexScope()
 
-    def checkModule(module: ModuleContext): Seq[CompileTimeError] = {
+    def checkModule(module: ModuleContext): (Seq[CompileTimeError], Option[CircuitMetadata]) = {
       val duplicateCircuitNameErrors = (for {
         circuit <- module.circuits
         name = circuit.name.name
@@ -27,7 +30,7 @@ object BoolexTypeChecker {
       }).flatten
       val noMainError = (!scopes.containsSymbol("main")).optionalList(MiscError("Could not find \'main\' circuit"))
       if (duplicateCircuitNameErrors.size + noMainError.size > 0) {
-        return noMainError ++: duplicateCircuitNameErrors
+        return (noMainError ++: duplicateCircuitNameErrors, None)
       } else {
         val dependencyGraph = (for {
           circuit <- module.circuits
@@ -36,16 +39,24 @@ object BoolexTypeChecker {
         } yield (name -> dependencies)).toMap
         val cyclicErrors = checkCyclicDependencies(dependencyGraph)
         if (cyclicErrors.nonEmpty) {
-          return cyclicErrors.toList
+          return (cyclicErrors.toList, None)
         } else {
           val circuitsByName = module.circuits.mapBy(_.name.name)
           val errorList = (for {
-            name <- topologicalSort(dependencyGraph)
+            name <- dependencyGraph.sortTopologically
             circuit <- circuitsByName.get(name)
           } yield {
             checkCircuitDeclaration(circuit)
           }).flatten
-          return errorList
+          // at this point, type checking has concluded
+          val circuitSpecs = (for {
+            circuit <- module.circuits
+            name = circuit.name.name
+            typeData <- scopes.getSymbolType(name).map(_.asInstanceOf[CircuitType])
+          } yield {
+            name -> (typeData.inputs, typeData.outputs)
+          }).toMap
+          return (errorList, Some(CircuitMetadata(dependencyGraph, circuitSpecs)))
         }
       }
     }
@@ -302,29 +313,6 @@ object BoolexTypeChecker {
       }
       dependencies -= node
       return dependencies.toSet
-    }
-
-    def topologicalSort[A](dependencyGraph: Map[A, Set[A]]): Seq[A] = {
-      val mutableGraph = scala.collection.mutable.Map() ++ (for {
-        (node, dependencies) <- dependencyGraph
-      } yield {
-        val realDependencies = dependencies & dependencyGraph.keys.toSet
-        (node -> scala.collection.mutable.Set(realDependencies.toSeq:_*))
-      })
-      val linearizedDependencies = scala.collection.mutable.ListBuffer.empty[A]
-      val independentNodes = scala.collection.mutable.Set.empty[A]
-      independentNodes ++= mutableGraph.filter({ case (_, deps) => deps.isEmpty }).keys
-      mutableGraph --= independentNodes
-      while (independentNodes.nonEmpty) {
-        val node = independentNodes.head
-        independentNodes -= node
-        linearizedDependencies += node
-        mutableGraph.values.foreach(_ -= node)
-        val newIndependentNodes = mutableGraph.filter({ case (_, deps) => deps.isEmpty }).keys
-        mutableGraph --= newIndependentNodes
-        independentNodes ++= newIndependentNodes
-      }
-      return linearizedDependencies.toList
     }
   }
 }
