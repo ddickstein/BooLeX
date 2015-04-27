@@ -7,7 +7,7 @@ object BoolexTypeChecker {
   import parser.contexts._
   def check(module: ModuleContext): (
     (Seq[CompileTimeError], Seq[CompileTimeError]),
-    Option[CircuitMetadata]
+    Option[CircuitMetaData]
   ) = {
     val blxTypeChecker = new BoolexTypeCheckerImpl()
     val (errors, dependencyGraphOpt) = blxTypeChecker.checkModule(module)
@@ -17,7 +17,7 @@ object BoolexTypeChecker {
   final private class BoolexTypeCheckerImpl {
     val scopes = new BoolexScope()
 
-    def checkModule(module: ModuleContext): (Seq[CompileTimeError], Option[CircuitMetadata]) = {
+    def checkModule(module: ModuleContext): (Seq[CompileTimeError], Option[CircuitMetaData]) = {
       val duplicateCircuitNameErrors = (for {
         circuit <- module.circuits
         name = circuit.name.name
@@ -56,7 +56,7 @@ object BoolexTypeChecker {
           } yield {
             name -> (typeData.inputs, typeData.outputs)
           }).toMap
-          return (errorList, Some(CircuitMetadata(dependencyGraph, circuitSpecs)))
+          return (errorList, Some(CircuitMetaData(dependencyGraph, circuitSpecs)))
         }
       }
     }

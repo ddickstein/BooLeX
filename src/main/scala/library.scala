@@ -17,7 +17,7 @@ package library {
   }
 
   class MyString(val str: String) extends AnyVal {
-    def decapitalize: String = if (str.nonEmpty && str.charAt(0).isLower) {
+    def decapitalize: String = if (str.nonEmpty && str.charAt(0).isUpper) {
       val chars = str.toCharArray
       chars(0) = chars(0).toLower
       new String(chars)

@@ -7,18 +7,29 @@ import library._
 // Note that this preprocessor drops positional information, but all error checking has already happened, so this is ok
 object Boolex2VhdlPreprocessor {
   import parser.contexts._
-  import typechecker.CircuitMetadata
+  import typechecker.CircuitMetaData
 
-  def preprocess(module: ModuleContext, metaData: CircuitMetadata): (ModuleContext, CircuitMetadata) = {
+  // List includes VHDL reserved words as well as some words we reserve for translation
+  private val reservedWords = Set("abs", "access", "after", "alias", "all", "and", "architecture", "array", "assert",
+    "attribute", "begin", "block", "body", "buffer", "bus", "case", "component", "configuration", "constant",
+    "disconnect", "downto", "else", "elsif", "end", "entity", "exit", "file", "for", "function", "generate",
+    "generic", "group", "guarded", "if", "impure", "in", "inertial", "inout", "integer", "is", "label", "library",
+    "linkage", "literal", "loop", "map", "mod", "nand", "new", "next", "nor", "not", "null", "of", "on", "open",
+    "or", "others", "out", "package", "port", "postponed", "procedure", "process", "pure", "range", "record",
+    "register", "reject", "rem", "report", "reset", "return", "rol", "ror", "select", "severity", "signal", "shared",
+    "sla", "sll", "sra", "srl", "subtype", "then", "to", "transport", "type", "unaffected", "units", "until", "use",
+    "variable", "wait", "when", "while", "with", "xnor", "xor")
+
+  def preprocess(module: ModuleContext, metaData: CircuitMetaData): (ModuleContext, CircuitMetaData) = {
     val blx2vhdlPreprocessor = new Boolex2VhdlPreprocessorImpl(module, metaData)
     (blx2vhdlPreprocessor.preprocessModule, blx2vhdlPreprocessor.metaData)
   }
 
-  final private class Boolex2VhdlPreprocessorImpl(module: ModuleContext, oldMetaData: CircuitMetadata) {
+  final private class Boolex2VhdlPreprocessorImpl(module: ModuleContext, oldMetaData: CircuitMetaData) {
     private val renameCircuit = getNewCircuitNameMap
     private var renameVariable: Map[String,String] = null // ok b/c will be set before use
     private var tempGenerator: Iterator[String] = null // ok b/c will be set before use
-    val metaData = CircuitMetadata(
+    val metaData = CircuitMetaData(
       dependencyGraph = oldMetaData.dependencyGraph.map({ case (circuit, dependencies) => {
         renameCircuit(circuit) -> dependencies.map(renameCircuit)
       }}),
@@ -177,19 +188,6 @@ object Boolex2VhdlPreprocessor {
       case Clock(milliseconds: Number) => Set(milliseconds.number.toInt)
       case CircuitCallContext(name: Symbol, arguments: Seq[ExpressionContext]) => arguments.flatMap(getClocks).toSet
     }
-
-    // Note: all the logic below deals with renaming variables to ensure consistency in VHDL translation
-
-    // List includes VHDL reserved words as well as some words we reserve for translation
-    private val reservedWords = Set("abs", "access", "after", "alias", "all", "and", "architecture", "array", "assert",
-      "attribute", "begin", "block", "body", "buffer", "bus", "case", "component", "configuration", "constant",
-      "disconnect", "downto", "else", "elsif", "end", "entity", "exit", "file", "for", "function", "generate", "generic",
-      "group", "guarded", "if", "impure", "in", "inertial", "inout", "integer", "is", "label", "library", "linkage",
-      "literal", "loop", "map", "mod", "nand", "new", "next", "nor", "not", "null", "of", "on", "open", "or", "others",
-      "out", "package", "port", "postponed", "procedure", "process", "pure", "range", "record", "register", "reject",
-      "rem", "report", "reset", "return", "rol", "ror", "select", "severity", "signal", "shared", "sla", "sll", "sra",
-      "srl", "subtype", "then", "to", "transport", "type", "unaffected", "units", "until", "use", "variable", "wait",
-      "when", "while", "with", "xnor", "xor")
 
     private def getNewCircuitNameMap: Map[String, String] = {
       val nameGenerator = Iterator.from(1).map(x => "__%02d".format(x))

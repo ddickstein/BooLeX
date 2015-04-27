@@ -2,6 +2,7 @@ import backend.{CircuitBuilder, CircuitRunner}
 import itreegen.BoolexIRGenerator
 import parser.{BoolexParseTreeRewriter, BoolexParser}
 import typechecker.BoolexTypeChecker
+import vhdl.{Boolex2VhdlPreprocessor, Boolex2VhdlTranslator}
 
 import library._
 
@@ -18,6 +19,11 @@ object Main {
     checkedParseTreeAndMetaData.left.foreach(_.foreach(errors.printerr))
     checkedParseTreeAndMetaData.right.foreach({ case (warnings, (module, metaData)) => {
       warnings.foreach(errors.printerr)
+      // Translation logic
+      val (module2, metaData2) = Boolex2VhdlPreprocessor.preprocess(module, metaData)
+      Boolex2VhdlTranslator.translate(module2, metaData2)
+
+      // Simulation logic
       val builder = new CircuitBuilder()
       val inputSockets = BoolexIRGenerator.generate(builder)(module).inputs
       val runner = new CircuitRunner(100, sockets => {
