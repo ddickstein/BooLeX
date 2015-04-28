@@ -2,7 +2,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import language.higherKinds
 import scala.collection.generic.CanBuildFrom
-import scala.collection.mutable.Builder
+import scala.collection.mutable.{Builder, HashMap, HashSet, Queue}
 
 package library {
   class Identity[A](val _value: A) extends AnyVal {
@@ -37,9 +37,16 @@ package library {
 
   class MySeq[A](val _seq: Seq[A]) extends AnyVal {
     def mapBy[B](func: A => B): Map[B, A] = _seq.map(x => (func(x), x)).toMap
+    def toMultiMap[T1, T2](implicit ev1: Seq[A] <:< Seq[(T1, T2)]): Map[T1, List[T2]] = {
+      val multiMap = HashMap.empty[T1, Builder[T2, List[T2]]].withDefault(x => List.newBuilder[T2])
+      for ((x,y) <- _seq: Seq[(T1, T2)]) {
+        multiMap(x) = multiMap(x) // register the key
+        multiMap(x) += y
+      }
+      return multiMap.mapValues(_.result).toMap
+    }
     def flatUnzip[T1, T2, CC1[T1], CC2[T2]](
-      implicit
-      ev1: Seq[A] <:< Seq[Tuple2[CC1[T1], CC2[T2]]],
+      implicit ev1: Seq[A] <:< Seq[(CC1[T1], CC2[T2])],
       ev2: CC1[T1] <:< TraversableOnce[T1],
       ev3: CC2[T2] <:< TraversableOnce[T2],
       cbf1: CanBuildFrom[CC1[T1], T1, CC1[T1]],
@@ -47,7 +54,7 @@ package library {
     ): (CC1[T1], CC2[T2]) = {
       val list1 = cbf1()
       val list2 = cbf2()
-      for ((xs, ys) <- _seq: Seq[Tuple2[CC1[T1], CC2[T2]]]) {
+      for ((xs, ys) <- _seq: Seq[(CC1[T1], CC2[T2])]) {
         list1 ++= xs
         list2 ++= ys
       }
@@ -61,7 +68,7 @@ package library {
       ev2: CC[E] <:< TraversableOnce[E],
       cbf: CanBuildFrom[CC[A], A, CC[A]]
     ): Map[E, CC[A]] = {
-      val inverted = scala.collection.mutable.Map.empty[E, Builder[A, CC[A]]]
+      val inverted = HashMap.empty[E, Builder[A, CC[A]]]
       for {
         (key, values) <- _map
         value <- values.asInstanceOf[CC[E]]
@@ -72,30 +79,6 @@ package library {
         inverted.get(value).foreach(_ += key)
       }
       return inverted.map({ case (k,v) => (k -> v.result) }).toMap
-    }
-
-    def sortTopologically(implicit ev: B =:= Set[A]): Seq[A] = {
-      val dependencyGraph = _map
-      val mutableGraph = scala.collection.mutable.Map() ++ (for {
-        (node, dependencies) <- dependencyGraph
-      } yield {
-        val realDependencies = dependencies & dependencyGraph.keys.toSet
-        (node -> scala.collection.mutable.Set(realDependencies.toSeq:_*))
-      })
-      val linearizedDependencies = scala.collection.mutable.ListBuffer.empty[A]
-      val independentNodes = scala.collection.mutable.Set.empty[A]
-      independentNodes ++= mutableGraph.filter({ case (_, deps) => deps.isEmpty }).keys
-      mutableGraph --= independentNodes
-      while (independentNodes.nonEmpty) {
-        val node = independentNodes.head
-        independentNodes -= node
-        linearizedDependencies += node
-        mutableGraph.values.foreach(_ -= node)
-        val newIndependentNodes = mutableGraph.filter({ case (_, deps) => deps.isEmpty }).keys
-        mutableGraph --= newIndependentNodes
-        independentNodes ++= newIndependentNodes
-      }
-      return linearizedDependencies.toList
     }
   }
 
@@ -196,9 +179,9 @@ package object library {
   val debugging1 = true
   val debugging2 = false
   val debugging3 = true
-  def debug(msg: String): Unit = if (debugging1) { println(Console.YELLOW + msg + Console.RESET) }
-  def debug2(msg: String): Unit = if (debugging2) { println(Console.MAGENTA + msg + Console.RESET) }
-  def debug3(msg: String): Unit = if (debugging3) { println(Console.CYAN + msg + Console.RESET) }
+  def debug[A](msg: A): A = { if (debugging1) println(Console.YELLOW + msg + Console.RESET); msg }
+  def debug2[A](msg: A): A = { if (debugging2) println(Console.MAGENTA + msg + Console.RESET); msg }
+  def debug3[A](msg: A): A = { if (debugging3) println(Console.CYAN + msg + Console.RESET); msg }
 
   def waitFor(cond: => Boolean, monitor: AnyRef) {
     monitor.synchronized {
@@ -218,5 +201,46 @@ package object library {
     } catch {
       case e: InterruptedException => Thread.currentThread.interrupt // restore interrupted signal
     } 
+  }
+
+  // Preprequisite: Graph contains no cycles
+  def topologicalSort[A, CC[A] <: TraversableOnce[A]](dependencyGraph: Map[A, CC[A]]): Seq[A] = {
+    val nodeSet = dependencyGraph.keys.toSet
+    // ensure that the only dependencies that are counted are the ones that have real nodes associated with them
+    val mutableGraph = HashMap.empty[A, HashSet[A]] ++ nodeSet.map(_ -> HashSet.empty[A]).toMap ++ new MySeq(for {
+      (node, dependencies) <- dependencyGraph.toList
+      dependency <- dependencies
+      if nodeSet.contains(dependency)
+    } yield {
+      (node -> dependency)
+    }).toMultiMap.mapValues(HashSet.empty[A] ++ _)
+    val linearizedDependencies = scala.collection.mutable.ListBuffer.empty[A]
+    val independentNodes = scala.collection.mutable.Set.empty[A]
+    independentNodes ++= mutableGraph.filter({ case (_, deps) => deps.isEmpty }).keys
+    mutableGraph --= independentNodes
+    while (independentNodes.nonEmpty) {
+      val node = independentNodes.head
+      independentNodes -= node
+      linearizedDependencies += node
+      mutableGraph.values.foreach(_ -= node)
+      val newIndependentNodes = mutableGraph.filter({ case (_, deps) => deps.isEmpty }).keys
+      mutableGraph --= newIndependentNodes
+      independentNodes ++= newIndependentNodes
+    }
+    return linearizedDependencies.toList
+  }
+
+  def getTotalDependencyMap[A](dependencyGraph: Map[A, Set[A]]): Map[A, Set[A]] = {
+    val nodeSet = dependencyGraph.keys.toSet
+    for ((node, dependencies) <- dependencyGraph) yield {
+      val processedDependencies = HashSet.empty[A]
+      val unprocessedDependencies = Queue.empty[A] ++ dependencies
+      while (unprocessedDependencies.nonEmpty) {
+        val dependency = unprocessedDependencies.dequeue
+        processedDependencies += dependency
+        unprocessedDependencies ++= (dependencyGraph(dependency) &~ processedDependencies)
+      }
+      node -> (processedDependencies & nodeSet).toSet
+    }
   }
 }

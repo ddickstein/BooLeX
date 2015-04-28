@@ -15,6 +15,19 @@ circuit main(d)
   X, _ = DLatch(d,clk)
   out X
 end
+
+circuit foo
+  out clock(2000)
+end
+
+circuit bar
+  out foo
+end
+
+circuit baz
+  out bar
+end
+
 """
 
 val testInputs = List(

@@ -43,7 +43,7 @@ object BoolexTypeChecker {
         } else {
           val circuitsByName = module.circuits.mapBy(_.name.name)
           val errorList = (for {
-            name <- dependencyGraph.sortTopologically
+            name <- topologicalSort(dependencyGraph)
             circuit <- circuitsByName.get(name)
           } yield {
             checkCircuitDeclaration(circuit)
@@ -56,7 +56,7 @@ object BoolexTypeChecker {
           } yield {
             name -> (typeData.inputs, typeData.outputs)
           }).toMap
-          return (errorList, Some(CircuitMetaData(dependencyGraph, circuitSpecs)))
+          return (errorList, Some(CircuitMetaData(getTotalDependencyMap(dependencyGraph), circuitSpecs)))
         }
       }
     }
@@ -94,7 +94,7 @@ object BoolexTypeChecker {
       scopes.endScope
       val allErrors = nameErrors ++: duplicateParameterNamesErrors ++: assignmentErrors ++: promiseErrors ++: outputErrors
       val warnings = if (allErrors.isEmpty) {
-        val outputDependencyGraph = {
+        val outputDependencyGraph = debug3(getTotalDependencyMap(debug({
           val inputDependencies = List("%input%" -> Set.empty[String])
           val formalDependencies = formals.map(_.name -> Set("%input%"))
           val localDependencies = for {
@@ -107,11 +107,11 @@ object BoolexTypeChecker {
           }
           val outputDependencies = List(("%output%" -> output.outputs.flatMap(getVariablesInExpression).toSet))
           (inputDependencies ++: formalDependencies ++: localDependencies ++: outputDependencies).toMap
-        }
+        })))
         val allVariablesByName = (formals ++: assignments.flatMap(_.variables).filter(_.name != "_")).mapBy(_.name)
         val inputDependencyGraph = outputDependencyGraph.invert
-        val variablesAffectedByInput = findAllDependencies(inputDependencyGraph, "%input%")
-        val variablesAffectingOutput = findAllDependencies(outputDependencyGraph, "%output%")
+        val variablesAffectedByInput = inputDependencyGraph.getOrElse("%input%", Nil)
+        val variablesAffectingOutput = outputDependencyGraph.getOrElse("%output%", Nil)
         val variablesNotAffectedByInput = allVariablesByName.keys.toSet -- variablesAffectedByInput
         val variablesNotAffectingOutput = allVariablesByName.keys.toSet -- variablesAffectingOutput
         (for (name <- variablesNotAffectedByInput) yield {
@@ -299,20 +299,6 @@ object BoolexTypeChecker {
         }
       }
       return None
-    }
-
-    def findAllDependencies[A](dependencyGraph: Map[A, Set[A]], node: A): Set[A] = {
-      val dependencies = scala.collection.mutable.Set.empty[A]
-      val nodesToSearch = scala.collection.mutable.Queue(node)
-      while (nodesToSearch.nonEmpty) {
-        val next = nodesToSearch.dequeue
-        if (!dependencies.contains(next)) {
-          dependencies += next
-          nodesToSearch ++= dependencyGraph.getOrElse(next, Nil)
-        }
-      }
-      dependencies -= node
-      return dependencies.toSet
     }
   }
 }

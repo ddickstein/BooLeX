@@ -29,16 +29,35 @@ object Boolex2VhdlPreprocessor {
     private val renameCircuit = getNewCircuitNameMap
     private var renameVariable: Map[String,String] = null // ok b/c will be set before use
     private var tempGenerator: Iterator[String] = null // ok b/c will be set before use
-    val metaData = CircuitMetaData(
-      dependencyGraph = oldMetaData.dependencyGraph.map({ case (circuit, dependencies) => {
-        renameCircuit(circuit) -> dependencies.map(renameCircuit)
-      }}),
-      circuitSpecs = oldMetaData.circuitSpecs.map({ case (circuit, specs) => renameCircuit(circuit) -> specs }),
-      circuitClocksMapOpt = Some(module.circuits.map(circuit => {
-        renameCircuit(circuit.name.name) ->
-          (circuit.assignments.flatMap(_.values) ++: circuit.output.outputs).flatMap(getClocks).toSet
-      }).toMap)
-    )
+    val metaData = {
+      val totalDependencyGraph = (for {
+        (oldCircuit, oldDependencies) <- oldMetaData.totalDependencyGraph
+        newCircuit = renameCircuit(oldCircuit)
+        newDependencies = oldDependencies.map(renameCircuit)
+      } yield newCircuit -> newDependencies).toMap
+      val circuitSpecs = for {
+        (oldCircuit, specs) <- oldMetaData.circuitSpecs
+      } yield renameCircuit(oldCircuit) -> specs
+      val directCircuitClocksMap = (for {
+        circuitContext <- module.circuits
+        newCircuit = renameCircuit(circuitContext.name.name)
+        clocksInAssignments = circuitContext.assignments.flatMap(_.values).flatMap(getClocks).toSet
+        clocksInOutputs = circuitContext.output.outputs.flatMap(getClocks).toSet
+      } yield {
+        newCircuit -> (clocksInAssignments ++ clocksInOutputs)
+      }).toMap
+      val fullCircuitClocksMap = (for {
+        circuit <- totalDependencyGraph.keys.toList
+      } yield circuit -> (directCircuitClocksMap(circuit) ++ (for {
+        dependency <- totalDependencyGraph(circuit)
+        clock <- directCircuitClocksMap(dependency)
+      } yield clock))).toMap
+      CircuitMetaData(
+        totalDependencyGraph = totalDependencyGraph,
+        circuitSpecs = circuitSpecs,
+        circuitClocksMapOpt = Some(fullCircuitClocksMap)
+      )
+    }
 
     def preprocessModule: ModuleContext = ModuleContext(module.circuits.map(preprocessCircuit))
 
@@ -47,7 +66,7 @@ object Boolex2VhdlPreprocessor {
       tempGenerator = Iterator.from(1).map(x => "temp_%02d".format(x))
       val name = renameCircuit(circuit.name.name)
       val params = circuit.paramsOpt.getOrElse(Nil)
-      val dependencies = metaData.dependencyGraph(name)
+      val dependencies = metaData.totalDependencyGraph(name)
       val circuitClocksMap = metaData.circuitClocksMapOpt.get
       val dependentClocks = for {
         dependency <- dependencies
@@ -227,6 +246,5 @@ object Boolex2VhdlPreprocessor {
         (oldName -> newName)
       }).toMap.withDefault(identity)
     }
-  
   }
 }
