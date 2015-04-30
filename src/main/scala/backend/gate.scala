@@ -2,6 +2,21 @@ package backend
 
 sealed trait Gate
 
+/*
+ * Although it would seem that the case object wrappers are gratuitous and that
+ * we could instead represent gates as case classes, the reason the code is
+ * designed in this more cumbersome way is to allow pattern matching on the
+ * gate type itself, which is done by the connectToGate method in circuit.scala
+ *
+ * Normally we could pattern match on the gate type by saying GateType(_,_),
+ * but while this would be fine for matching, the connectToGate method still
+ * requires a gate type parameter, so we would still need some sort of other
+ * enum or a set of default objects (one per gate) that we pass to signal the
+ * type.  Neither of these alternate approaches seemed organized.
+ *
+ */
+
+// A factory for buffers
 case object Buffer extends Gate {
   def apply(input: Socket, output: Socket) {
     new BufferImpl(input: Socket, output: Socket)
@@ -16,6 +31,7 @@ case object Buffer extends Gate {
   }
 }
 
+// A factory for NOT gates
 case object NotGate extends Gate {
   def apply(input: Socket, output: Socket) {
     new NotGateImpl(input: Socket, output: Socket)
@@ -30,6 +46,7 @@ case object NotGate extends Gate {
   }
 }
 
+// A factory for AND gates
 case object AndGate extends Gate {
   def apply(input1: Socket, input2: Socket, output: Socket) {
     new AndGateImpl(input1: Socket, input2: Socket, output: Socket)
@@ -45,6 +62,7 @@ case object AndGate extends Gate {
   }
 }
 
+// A factory for OR gates
 case object OrGate extends Gate {
   def apply(input1: Socket, input2: Socket, output: Socket) {
     new OrGateImpl(input1: Socket, input2: Socket, output: Socket)
@@ -60,6 +78,7 @@ case object OrGate extends Gate {
   }
 }
 
+// A factory for XOR gates
 case object XorGate extends Gate {
   def apply(input1: Socket, input2: Socket, output: Socket) {
     new XorGateImpl(input1: Socket, input2: Socket, output: Socket)
@@ -75,6 +94,7 @@ case object XorGate extends Gate {
   }
 }
 
+// A factory for NAND gates
 case object NandGate extends Gate {
   def apply(input1: Socket, input2: Socket, output: Socket) {
     new NandGateImpl(input1: Socket, input2: Socket, output: Socket)
@@ -90,6 +110,7 @@ case object NandGate extends Gate {
   }
 }
 
+// A factory for NOR gates
 case object NorGate extends Gate {
   def apply(input1: Socket, input2: Socket, output: Socket) {
     new NorGateImpl(input1: Socket, input2: Socket, output: Socket)
@@ -105,6 +126,7 @@ case object NorGate extends Gate {
   }
 }
 
+// A factory for XNOR gates
 case object XnorGate extends Gate {
   def apply(input1: Socket, input2: Socket, output: Socket) {
     new XnorGateImpl(input1: Socket, input2: Socket, output: Socket)
