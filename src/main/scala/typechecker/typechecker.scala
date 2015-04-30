@@ -94,7 +94,7 @@ object BoolexTypeChecker {
       scopes.endScope
       val allErrors = nameErrors ++: duplicateParameterNamesErrors ++: assignmentErrors ++: promiseErrors ++: outputErrors
       val warnings = if (allErrors.isEmpty) {
-        val outputDependencyGraph = debug3(getTotalDependencyMap(debug({
+        val outputDependencyGraph = getTotalDependencyMap({
           val inputDependencies = List("%input%" -> Set.empty[String])
           val formalDependencies = formals.map(_.name -> Set("%input%"))
           val localDependencies = for {
@@ -107,7 +107,7 @@ object BoolexTypeChecker {
           }
           val outputDependencies = List(("%output%" -> output.outputs.flatMap(getVariablesInExpression).toSet))
           (inputDependencies ++: formalDependencies ++: localDependencies ++: outputDependencies).toMap
-        })))
+        })
         val allVariablesByName = (formals ++: assignments.flatMap(_.variables).filter(_.name != "_")).mapBy(_.name)
         val inputDependencyGraph = outputDependencyGraph.invert
         val variablesAffectedByInput = inputDependencyGraph.getOrElse("%input%", Nil)
