@@ -12,11 +12,16 @@ object BoolexParser {
     val result = blxParser.parseAll(input)
     result match {
       case blxParser.Success(result, _) => Right(result)
-      case blxParser.NoSuccess(msg, next) => Left(List(SyntaxError(msg, Some(next.pos))))
+      case blxParser.NoSuccess(msg, next) => Left(
+        List(SyntaxError(msg, Some(next.pos)))
+      )
     }
   }
 
-  final private class BoolexParserImpl extends StdTokenParsers with PackratParsers {
+  final private class BoolexParserImpl
+    extends StdTokenParsers
+    with PackratParsers
+  {
     type EC = ExpressionContext
 
     override type Tokens = BoolexLexer
@@ -29,25 +34,31 @@ object BoolexParser {
     lazy val module: PackratParser[ModuleContext] = positioned(
       rep1(circuitDeclaration) ^^ (circuits => ModuleContext(circuits))
     )
-    
-    lazy val circuitDeclaration: PackratParser[CircuitDeclarationContext] = positioned((
-        "circuit" ~ symbol ~ opt("(" ~ rep1sep(symbol, ",") ~ ")") ~
-          rep(assignment) ~
-          outStatement ~
-        "end"
-      ) ^^ {
-        case "circuit"~name~Some("("~params~")")~body~out~"end" =>
-          CircuitDeclarationContext(name, Some(params), body, out)
-        case "circuit"~name~None~body~out~"end" => CircuitDeclarationContext(name, None, body, out)
-      }
-    )
-    
+
+    lazy val circuitDeclaration: PackratParser[CircuitDeclarationContext] = {
+      positioned(
+        (
+          "circuit" ~ symbol ~ opt("(" ~ rep1sep(symbol, ",") ~ ")") ~
+            rep(assignment) ~
+            outStatement ~
+          "end"
+        ) ^^ {
+          case "circuit" ~ name ~ None ~ body ~ out ~ "end" =>
+            CircuitDeclarationContext(name, None, body, out)
+          case "circuit" ~ name ~ Some("(" ~ params ~ ")")
+            ~ body ~ out ~ "end" => {
+              CircuitDeclarationContext(name, Some(params), body, out)
+            }
+        }
+      )
+    }
+
     lazy val assignment: PackratParser[AssignmentContext] = positioned(
       rep1sep(symbol, ",") ~ "=" ~ rep1sep(l1expression, ",") ^^ {
         case variables~"="~values => AssignmentContext(variables, values)
       }
     )
-    
+
     lazy val outStatement: PackratParser[OutStatementContext] = positioned(
       "out" ~ rep1sep(l1expression, ",") ^^ {
         case "out"~outputs => OutStatementContext(outputs)
@@ -132,10 +143,12 @@ object BoolexParser {
       }
     )
 
-    lazy val clock: PackratParser[Clock] = positioned("clock" ~> "(" ~> number <~ ")" ^^ Clock)
+    lazy val clock: PackratParser[Clock] = positioned(
+      "clock" ~> "(" ~> number <~ ")" ^^ Clock
+    )
 
     lazy val number: PackratParser[Number] = positioned(numericLit ^^ Number)
-    
+
     lazy val symbol: PackratParser[Symbol] = positioned(ident ^^ Symbol)
   }
 }

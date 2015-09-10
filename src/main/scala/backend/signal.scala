@@ -1,10 +1,12 @@
 package backend
 
-import scala.collection.mutable.PriorityQueue
-
 import library._
 
-class Signal(val target: SignalReceiver, val value: Boolean, private var _delay: Int) extends Ordered[Signal] {
+class Signal(
+  val target: SignalReceiver,
+  val value: Boolean,
+  private var _delay: Int
+) extends Ordered[Signal] {
   def delay: Int = _delay
   def decrement: Unit = _delay -= 1
   def compare(that: Signal): Int = this.delay - that.delay

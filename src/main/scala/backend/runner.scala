@@ -4,14 +4,26 @@ import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.ConcurrentLinkedQueue
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.{
+  ListBuffer => MListBuffer,
+  SortedSet => MSortedSet
+}
 
+import debugger._
 import library._
 
 class CircuitRunner(delayTime: Int, callback: Seq[(String, Boolean)] => Unit) {
-  private val loadingDock = new ConcurrentLinkedQueue[Signal] // loaded into the signal queue for firing
-  private val stabilizer = new Stabilizer[Signal] // stabilize entries in the priority queue
-  private val signalQueue = new ConcurrentSkipListSet[stabilizer.entry] // stabilized priority queue
-  private val clocks = scala.collection.mutable.ListBuffer.empty[Thread]
+  // signals that will be loaded into the signal queue for firing
+  private val loadingDock = new ConcurrentLinkedQueue[Signal]
+
+  // stabilizer for ensuring stability in the signal queue
+  private val stabilizer = new Stabilizer[Signal]
+
+  // signal queue (stabilized priority queue)
+  private val signalQueue = new ConcurrentSkipListSet[stabilizer.entry]
+
+  private val clocks = MListBuffer.empty[Thread]
+
   private var initialized = false
   private var finished = false
 
@@ -21,12 +33,15 @@ class CircuitRunner(delayTime: Int, callback: Seq[(String, Boolean)] => Unit) {
       debug("Starting to load")
       while (!Thread.interrupted) {
         waitFor(!loadingDock.isEmpty, loadingDock)
-        (!Thread.currentThread.isInterrupted).optionally(loadingDock.poll).foreach(signal => {
-          signalQueue.synchronized {
-            signalQueue.add(signal)
-            signalQueue.notifyAll
+        if (!Thread.currentThread.isInterrupted) {
+          val signal = loadingDock.poll
+          if (signal != null) {
+              signalQueue.synchronized {
+              signalQueue.add(signal)
+              signalQueue.notifyAll
+            }
           }
-        })
+        }
       }
       debug("Loader: All done!")
     }
@@ -43,7 +58,7 @@ class CircuitRunner(delayTime: Int, callback: Seq[(String, Boolean)] => Unit) {
           }
         }
         waitFor(!signalQueue.isEmpty, signalQueue)
-        val receivers = scala.collection.mutable.SortedSet.empty[(String, Boolean)]
+        val receivers = MSortedSet.empty[(String, Boolean)]
         while (!signalQueue.isEmpty && signalQueue.first.delay == 0) {
           val signal = signalQueue.pollFirst
           signal.fire(signal => signalQueue.add(signal))

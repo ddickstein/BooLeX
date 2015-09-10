@@ -1,9 +1,15 @@
 package backend
 
+import scala.collection.mutable.{Set => MSet}
+
+import debugger._
 import library._
 
-class Socket(var idOpt: Option[String] = None, private var _value: Boolean = false) extends SignalReceiver {
-  private var _targets = scala.collection.mutable.Set.empty[SignalReceiver]
+class Socket(
+  var idOpt: Option[String] = None,
+  private var _value: Boolean = false
+) extends SignalReceiver {
+  private var _targets = MSet.empty[SignalReceiver]
   def value: Boolean = _value
   def targets: Set[SignalReceiver] = _targets.toSet
   def addTarget(target: SignalReceiver): Unit = _targets += target
@@ -14,7 +20,10 @@ class Socket(var idOpt: Option[String] = None, private var _value: Boolean = fal
     }
     targets.foreach(target => propagate(new Signal(target, value, 0)))
   }
-  override def toString: String = "(" + idOpt.getOrElse("?") + ": " + value + ")"
+  override def toString: String = {
+    return "(" + idOpt.getOrElse("?") + ": " + value + ")"
+  }
 }
 
-class ConstantSocket(override val value: Boolean) extends Socket(Some("$" + value.toString.toUpperCase + "$"), value)
+class ConstantSocket(override val value: Boolean)
+  extends Socket(Some("$" + value.toString.toUpperCase + "$"), value)

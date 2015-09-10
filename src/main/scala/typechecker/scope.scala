@@ -1,21 +1,21 @@
 package typechecker
 
-import scala.collection.mutable.HashMap
+import scala.collection.mutable.{HashMap => MHashMap}
 import scala.util.parsing.input.Position
 
 sealed abstract class BoolexType
 final case object BooleanType extends BoolexType
 final case class BooleanPromiseType(pos: Position) extends BoolexType
 final case class CircuitType(inputs: Int, outputs: Int) extends BoolexType
-final case class PartialCircuitType(inputs: Int) extends BoolexType // stub type we will complete at a later stage
+final case class PartialCircuitType(inputs: Int) extends BoolexType
 
 final class BoolexScope {
-  private var scopes = List.empty[HashMap[String, BoolexType]]
+  private var scopes = List.empty[MHashMap[String, BoolexType]]
   private var owners = List.empty[String]
   startScope("TOP")
 
   def startScope(parent: String) {
-    scopes = HashMap.empty[String, BoolexType] +: scopes
+    scopes = MHashMap.empty[String, BoolexType] +: scopes
     owners = parent +: owners
   }
 
@@ -29,10 +29,14 @@ final class BoolexScope {
   }
 
   def getOwner: String = owners.head
-  
-  def getSymbolType(symbol: String): Option[BoolexType] = scopes.find(_.contains(symbol)).flatMap(_.get(symbol))
 
-  def containsSymbol(symbol: String): Boolean = scopes.exists(_.contains(symbol))
+  def getSymbolType(symbol: String): Option[BoolexType] = {
+    return scopes.find(_.contains(symbol)).flatMap(_.get(symbol))
+  }
+
+  def containsSymbol(symbol: String): Boolean = {
+    return scopes.exists(_.contains(symbol))
+  }
 
   def addSymbol(symbol: String, typ: BoolexType): Boolean = {
     if (getSymbolType(symbol).nonEmpty) {
@@ -48,12 +52,20 @@ final class BoolexScope {
     typ <- scope.get(symbol)
     if typ.isInstanceOf[PartialCircuitType]
   } yield {
-    scope.put(symbol, CircuitType(typ.asInstanceOf[PartialCircuitType].inputs, outputs))
+    scope.put(
+      symbol,
+      CircuitType(typ.asInstanceOf[PartialCircuitType].inputs, outputs)
+    )
   }).nonEmpty
 
   def fillPromise(symbol: String): Boolean = {
     val scopeOpt = scopes.find(_.contains(symbol))
-    if (scopeOpt.nonEmpty && scopeOpt.flatMap(_.get(symbol)).exists(!_.isInstanceOf[BooleanPromiseType])) {
+    if (
+      scopeOpt.nonEmpty &&
+      scopeOpt
+        .flatMap(_.get(symbol))
+        .exists(!_.isInstanceOf[BooleanPromiseType])
+    ) {
       return false
     } else {
       scopeOpt.getOrElse(scopes.head).put(symbol, BooleanType)
@@ -61,7 +73,8 @@ final class BoolexScope {
     }
   }
 
-  def getPersonalPromises: Seq[(String, Position)] = (for { // return all promises made by this scope
+  // return all promises made by this scope
+  def getPersonalPromises: Seq[(String, Position)] = (for {
     (symbol, typ) <- scopes.head
     if typ.isInstanceOf[BooleanPromiseType]
   } yield {

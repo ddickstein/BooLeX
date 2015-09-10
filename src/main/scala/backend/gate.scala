@@ -22,7 +22,9 @@ case object Buffer extends Gate {
     new BufferImpl(input: Socket, output: Socket)
   }
 
-  private class BufferImpl(input: Socket, output: Socket) extends SignalReceiver {
+  private class BufferImpl(input: Socket, output: Socket)
+    extends SignalReceiver
+  {
     input.addTarget(this)
     def receive(signal: Signal, propagate: Signal => Unit) {
       propagate(new Signal(output, input.value, 1))
@@ -37,7 +39,9 @@ case object NotGate extends Gate {
     new NotGateImpl(input: Socket, output: Socket)
   }
 
-  private class NotGateImpl(input: Socket, output: Socket) extends SignalReceiver {
+  private class NotGateImpl(input: Socket, output: Socket)
+    extends SignalReceiver
+  {
     input.addTarget(this)
     def receive(signal: Signal, propagate: Signal => Unit) {
       propagate(new Signal(output, !input.value, 1))
@@ -52,13 +56,17 @@ case object AndGate extends Gate {
     new AndGateImpl(input1: Socket, input2: Socket, output: Socket)
   }
 
-  private class AndGateImpl(input1: Socket, input2: Socket, output: Socket) extends SignalReceiver {
+  private class AndGateImpl(input1: Socket, input2: Socket, output: Socket)
+    extends SignalReceiver
+  {
     input1.addTarget(this)
     input2.addTarget(this)
     def receive(signal: Signal, propagate: Signal => Unit) {
       propagate(new Signal(output, input1.value && input2.value, 1))
     }
-    override def toString: String = "AND[" + input1 + ", " + input2 + "] => " + output
+    override def toString: String = {
+      return "AND[" + input1 + ", " + input2 + "] => " + output
+    }
   }
 }
 
@@ -68,13 +76,17 @@ case object OrGate extends Gate {
     new OrGateImpl(input1: Socket, input2: Socket, output: Socket)
   }
 
-  private class OrGateImpl(input1: Socket, input2: Socket, output: Socket) extends SignalReceiver {
+  private class OrGateImpl(input1: Socket, input2: Socket, output: Socket)
+    extends SignalReceiver
+  {
     input1.addTarget(this)
     input2.addTarget(this)
     def receive(signal: Signal, propagate: Signal => Unit) {
       propagate(new Signal(output, input1.value || input2.value, 1))
     }
-    override def toString: String = "OR[" + input1 + ", " + input2 + "] => " + output
+    override def toString: String = {
+      return "OR[" + input1 + ", " + input2 + "] => " + output
+    }
   }
 }
 
@@ -84,13 +96,17 @@ case object XorGate extends Gate {
     new XorGateImpl(input1: Socket, input2: Socket, output: Socket)
   }
 
-  private class XorGateImpl(input1: Socket, input2: Socket, output: Socket) extends SignalReceiver {
+  private class XorGateImpl(input1: Socket, input2: Socket, output: Socket)
+    extends SignalReceiver
+  {
     input1.addTarget(this)
     input2.addTarget(this)
     def receive(signal: Signal, propagate: Signal => Unit) {
       propagate(new Signal(output, input1.value ^ input2.value, 1))
     }
-    override def toString: String = "XOR[" + input1 + ", " + input2 + "] => " + output
+    override def toString: String = {
+      return "XOR[" + input1 + ", " + input2 + "] => " + output
+    }
   }
 }
 
@@ -100,13 +116,17 @@ case object NandGate extends Gate {
     new NandGateImpl(input1: Socket, input2: Socket, output: Socket)
   }
 
-  private class NandGateImpl(input1: Socket, input2: Socket, output: Socket) extends SignalReceiver {
+  private class NandGateImpl(input1: Socket, input2: Socket, output: Socket)
+    extends SignalReceiver
+  {
     input1.addTarget(this)
     input2.addTarget(this)
     def receive(signal: Signal, propagate: Signal => Unit) {
       propagate(new Signal(output, !(input1.value && input2.value), 1))
     }
-    override def toString: String = "NAND[" + input1 + ", " + input2 + "] => " + output
+    override def toString: String = {
+      return "NAND[" + input1 + ", " + input2 + "] => " + output
+    }
   }
 }
 
@@ -116,13 +136,17 @@ case object NorGate extends Gate {
     new NorGateImpl(input1: Socket, input2: Socket, output: Socket)
   }
 
-  private class NorGateImpl(input1: Socket, input2: Socket, output: Socket) extends SignalReceiver {
+  private class NorGateImpl(input1: Socket, input2: Socket, output: Socket)
+    extends SignalReceiver
+  {
     input1.addTarget(this)
     input2.addTarget(this)
     def receive(signal: Signal, propagate: Signal => Unit) {
       propagate(new Signal(output, !(input1.value || input2.value), 1))
     }
-    override def toString: String = "NOR[" + input1 + ", " + input2 + "] => " + output
+    override def toString: String = {
+      return "NOR[" + input1 + ", " + input2 + "] => " + output
+    }
   }
 }
 
@@ -132,12 +156,16 @@ case object XnorGate extends Gate {
     new XnorGateImpl(input1: Socket, input2: Socket, output: Socket)
   }
 
-  private class XnorGateImpl(input1: Socket, input2: Socket, output: Socket) extends SignalReceiver {
+  private class XnorGateImpl(input1: Socket, input2: Socket, output: Socket)
+    extends SignalReceiver
+  {
     input1.addTarget(this)
     input2.addTarget(this)
     def receive(signal: Signal, propagate: Signal => Unit) {
       propagate(new Signal(output, !(input1.value ^ input2.value), 1))
     }
-    override def toString: String = "XNOR[" + input1 + ", " + input2 + "] => " + output
+    override def toString: String = {
+      return "XNOR[" + input1 + ", " + input2 + "] => " + output
+    }
   }
 }

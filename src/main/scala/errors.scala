@@ -14,12 +14,16 @@ package object errors {
   def printerr(err: CompileTimeError) {
     def _printerr(errTyp: String, msg: String, posOpt: Option[Position]) {
       val pos = posOpt.map(pos => "[" + pos + "] ").getOrElse("")
-      Console.err.println(Console.RED + pos + errTyp + ": " + Console.RESET + msg)
+      Console.err.println(
+        Console.RED + pos + errTyp + ": " + Console.RESET + msg
+      )
     }
 
     def _printwarning(msg: String, posOpt: Option[Position]) {
       val pos = posOpt.map(pos => "[" + pos + "] ").getOrElse("")
-      Console.err.println(Console.YELLOW + pos + "Warning: " + Console.RESET + msg)
+      Console.err.println(
+        Console.YELLOW + pos + "Warning: " + Console.RESET + msg
+      )
     }
 
     err match {
